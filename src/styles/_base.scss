@@ -1,0 +1,70 @@
+// Base styles
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--gray-800);
+  background: linear-gradient(135deg, var(--background-light) 0%, var(--accent-light) 100%);
+  min-height: 100vh;
+  transition: all var(--transition-normal);
+}
+
+// Utility classes
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.no-data {
+  text-align: center;
+  color: var(--gray-500);
+  font-style: italic;
+  padding: var(--spacing-8);
+}
+
+// Focus styles for better accessibility
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+// Accessibility improvements
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// High Contrast Mode Support
+@media (prefers-contrast: high) {
+  :root {
+    --primary-dark: #000000;
+    --primary-medium: #0066cc;
+    --primary-light: #0080ff;
+    --gray-300: #666666;
+    --gray-600: #333333;
+  }
+}
