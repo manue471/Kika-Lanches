@@ -1,20 +1,30 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useNotifications } from '@/composables/useNotifications'
 import { useTheme } from '@/composables/useStorage'
+import { useAuth } from '@/composables/useAuth'
 import AppLayout from '@/components/Layout/AppLayout.vue'
-import Dashboard from '@/pages/Dashboard.vue'
+import AuthLayout from '@/components/Layout/AuthLayout.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { showNotification } = useNotifications()
 const { initTheme } = useTheme()
+const { initAuth } = useAuth()
 
 const currentRoute = ref('dashboard')
 
-// Initialize theme on mount
-onMounted(() => {
+// Check if current route is auth route (login/register)
+const isAuthRoute = computed(() => {
+  return route.name === 'login' || route.name === 'register'
+})
+
+// Initialize theme and auth on mount
+onMounted(async () => {
   initTheme()
+  // Initialize auth without await to avoid blocking
+  initAuth().catch(console.error)
 })
 
 const handleNavigation = (route: string) => {
@@ -28,7 +38,13 @@ const handleShowModal = (type: string) => {
 </script>
 
 <template>
-  <AppLayout :current-route="currentRoute" @navigate="handleNavigation">
+  <!-- Auth routes (login/register) with minimal layout -->
+  <AuthLayout v-if="isAuthRoute">
+    <RouterView />
+  </AuthLayout>
+  
+  <!-- Protected routes with full layout -->
+  <AppLayout v-else :current-route="currentRoute" @navigate="handleNavigation">
     <RouterView @navigate="handleNavigation" @show-modal="handleShowModal" />
   </AppLayout>
 </template>

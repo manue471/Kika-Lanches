@@ -1,58 +1,64 @@
-import { ref } from 'vue'
+import { useToast, TYPE } from 'vue-toastification'
 
-export interface Notification {
-  id: string
-  message: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  duration?: number
-}
+type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'default'
 
-/**
- * Composable para gerenciamento de notificações
- */
 export function useNotifications() {
-  const notifications = ref<Notification[]>([])
+  const toast = useToast()
 
-  const showNotification = (
-    message: string, 
-    type: Notification['type'] = 'info', 
-    duration: number = 5000
-  ) => {
-    const notification: Notification = {
-      id: Date.now().toString(),
-      message,
-      type,
-      duration
+  const showNotification = (message: string, type: NotificationType = 'default') => {
+    let toastType: TYPE
+
+    switch (type) {
+      case 'success':
+        toastType = TYPE.SUCCESS
+        break
+      case 'error':
+        toastType = TYPE.ERROR
+        break
+      case 'warning':
+        toastType = TYPE.WARNING
+        break
+      case 'info':
+        toastType = TYPE.INFO
+        break
+      default:
+        toastType = TYPE.DEFAULT
     }
 
-    notifications.value.push(notification)
-
-    // Auto remove after duration
-    if (duration > 0) {
-      setTimeout(() => {
-        removeNotification(notification.id)
-      }, duration)
-    }
-
-    return notification.id
+    toast(message, { type: toastType })
   }
 
-  const removeNotification = (id: string) => {
-    const index = notifications.value.findIndex(n => n.id === id)
-    if (index > -1) {
-      notifications.value.splice(index, 1)
-    }
+  const success = (message: string) => {
+    showNotification(message, 'success')
   }
 
-  const clearAll = () => {
-    notifications.value = []
+  const error = (message: string) => {
+    showNotification(message, 'error')
+  }
+
+  const warning = (message: string) => {
+    showNotification(message, 'warning')
+  }
+
+  const info = (message: string) => {
+    showNotification(message, 'info')
+  }
+
+  const clear = () => {
+    toast.clear()
+  }
+
+  const dismiss = (toastId: string) => {
+    toast.dismiss(toastId)
   }
 
   return {
-    notifications,
     showNotification,
-    removeNotification,
-    clearAll
+    success,
+    error,
+    warning,
+    info,
+    clear,
+    dismiss
   }
 }
-

@@ -1,15 +1,15 @@
 <template>
-  <div class="products">
+  <div class="products-page">
     <!-- Header -->
-    <div class="products-header">
-      <h2>Gerenciar Produtos</h2>
+    <div class="page-header">
+      <h1>Produtos</h1>
       <BaseButton 
         variant="primary" 
         @click="showProductModal = true"
         :loading="isCreating"
       >
         <span class="btn-icon">➕</span>
-        Adicionar Produto
+        Novo Produto
       </BaseButton>
     </div>
 
@@ -35,20 +35,6 @@
           >
             {{ showOnlyActive ? 'Ativos' : 'Todos' }}
           </BaseButton>
-          <div class="view-toggle">
-            <button
-              :class="['view-btn', { active: viewMode === 'grid' }]"
-              @click="viewMode = 'grid'"
-            >
-              Grid
-            </button>
-            <button
-              :class="['view-btn', { active: viewMode === 'list' }]"
-              @click="viewMode = 'list'"
-            >
-              Lista
-            </button>
-          </div>
         </div>
       </div>
     </BaseCard>
@@ -75,27 +61,9 @@
     </BaseCard>
 
     <!-- Products Grid -->
-    <div v-else class="products-grid" :class="{ 'list-view': viewMode === 'list' }">
-      <!-- Empty State -->
-      <div v-if="!products || products.length === 0" class="empty-state">
-        <div class="empty-icon">📦</div>
-        <h3>Nenhum produto encontrado</h3>
-        <p>Comece adicionando seu primeiro produto clicando no botão "Novo Produto"</p>
-        <BaseButton 
-          variant="primary" 
-          @click="showProductModal = true"
-          :loading="isCreating"
-        >
-          <span class="btn-icon">📦</span>
-          Novo Produto
-        </BaseButton>
-      </div>
-
-      <!-- Products List -->
+    <div v-else class="products-grid">
       <BaseCard
-        v-else
         v-for="product in products"
-        v-if="product && product.id"
         :key="product.id"
         class="product-card"
         :class="{ 'inactive': !product.is_active }"
@@ -104,9 +72,6 @@
           <div class="product-info">
             <h3 class="product-name">{{ product.name }}</h3>
             <p class="product-sku" v-if="product.sku">SKU: {{ product.sku }}</p>
-            <p class="product-category" v-if="product.category">
-              {{ product.category.name }}
-            </p>
           </div>
           <div class="product-actions">
             <BaseButton
@@ -127,7 +92,7 @@
             <BaseButton
               size="sm"
               variant="danger"
-              @click="deleteProductConfirm(product.id)"
+              @click="deleteProduct(product.id)"
               :loading="isDeleting"
             >
               Excluir
@@ -150,6 +115,11 @@
               {{ product.stock }} unidades
             </span>
           </div>
+
+          <div class="product-category" v-if="product.category">
+            <span class="category-label">Categoria:</span>
+            <span class="category-value">{{ product.category.name }}</span>
+          </div>
         </div>
 
         <div v-if="product.description" class="product-description">
@@ -158,7 +128,7 @@
 
         <div class="product-footer">
           <div class="product-meta">
-            <span class="created-date" v-if="product.created_at">
+            <span class="created-date">
               Criado em {{ formatDate(product.created_at) }}
             </span>
           </div>
@@ -230,14 +200,14 @@ const {
 
 const { currency, date } = useFormatter()
 
-// UI State
-const viewMode = ref<'grid' | 'list'>('grid')
+// Modal state
 const showProductModal = ref(false)
 const selectedProduct = ref<Product | null>(null)
 
 // Computed
 const formatCurrency = currency
-const formatDate = (dateString: string) => {
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Data não disponível'
   return date(new Date(dateString))
 }
 
@@ -272,19 +242,19 @@ const deleteProductConfirm = async (id: number) => {
 </script>
 
 <style lang="scss" scoped>
-.products {
+.products-page {
   padding: var(--spacing-6);
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.products-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-6);
   
-  h2 {
+  h1 {
     margin: 0;
     color: var(--primary-dark);
   }
@@ -308,34 +278,6 @@ const deleteProductConfirm = async (id: number) => {
 .filter-actions {
   display: flex;
   gap: var(--spacing-2);
-  align-items: center;
-}
-
-.view-toggle {
-  display: flex;
-  gap: var(--spacing-1);
-  margin-left: var(--spacing-4);
-}
-
-.view-btn {
-  padding: var(--spacing-2) var(--spacing-3);
-  border: 1px solid var(--gray-300);
-  background: var(--white);
-  color: var(--gray-600);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--font-size-sm);
-
-  &.active {
-    background: var(--primary-light);
-    color: var(--white);
-    border-color: var(--primary-light);
-  }
-
-  &:hover:not(.active) {
-    background: var(--gray-100);
-  }
 }
 
 .error-card {
@@ -366,10 +308,6 @@ const deleteProductConfirm = async (id: number) => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: var(--spacing-6);
-
-  &.list-view {
-    grid-template-columns: 1fr;
-  }
 }
 
 .product-card {
@@ -404,15 +342,9 @@ const deleteProductConfirm = async (id: number) => {
   }
   
   .product-sku {
-    margin: 0 0 var(--spacing-1) 0;
-    font-size: var(--font-size-sm);
-    color: var(--gray-500);
-  }
-
-  .product-category {
     margin: 0;
     font-size: var(--font-size-sm);
-    color: var(--gray-600);
+    color: var(--gray-500);
   }
 }
 
@@ -430,13 +362,15 @@ const deleteProductConfirm = async (id: number) => {
 }
 
 .product-price,
-.product-stock {
+.product-stock,
+.product-category {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-1);
   
   .price-label,
-  .stock-label {
+  .stock-label,
+  .category-label {
     font-size: var(--font-size-xs);
     color: var(--gray-500);
     text-transform: uppercase;
@@ -456,6 +390,11 @@ const deleteProductConfirm = async (id: number) => {
     &.low-stock {
       color: var(--warning);
     }
+  }
+  
+  .category-value {
+    font-size: var(--font-size-sm);
+    color: var(--gray-700);
   }
 }
 
@@ -500,11 +439,11 @@ const deleteProductConfirm = async (id: number) => {
 
 // Mobile optimizations
 @media (max-width: 768px) {
-  .products {
+  .products-page {
     padding: var(--spacing-4);
   }
   
-  .products-header {
+  .page-header {
     flex-direction: column;
     gap: var(--spacing-4);
     align-items: stretch;
@@ -513,16 +452,6 @@ const deleteProductConfirm = async (id: number) => {
   .filters-grid {
     grid-template-columns: 1fr;
     gap: var(--spacing-3);
-  }
-  
-  .filter-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .view-toggle {
-    margin-left: 0;
-    justify-content: center;
   }
   
   .products-grid {
@@ -549,37 +478,8 @@ const deleteProductConfirm = async (id: number) => {
   }
 }
 
-// Empty State Styles
-.empty-state {
-  text-align: center;
-  padding: var(--spacing-8) var(--spacing-4);
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--gray-200);
-  grid-column: 1 / -1;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: var(--spacing-4);
-  opacity: 0.6;
-}
-
-.empty-state h3 {
-  color: var(--gray-700);
-  margin-bottom: var(--spacing-2);
-  font-size: var(--font-size-lg);
-}
-
-.empty-state p {
-  color: var(--gray-500);
-  margin-bottom: var(--spacing-6);
-  font-size: var(--font-size-sm);
-}
-
 @media (max-width: 480px) {
-  .products {
+  .products-page {
     padding: var(--spacing-2);
   }
   

@@ -1,502 +1,629 @@
 <template>
   <div class="sales">
+    <!-- Header -->
     <div class="sales-header">
-      <h2>Nova Venda</h2>
-      <div class="sales-actions">
-        <BaseButton variant="secondary" @click="clearCart">Limpar Carrinho</BaseButton>
-        <BaseButton 
-          variant="primary" 
-          :disabled="!canFinalize"
-          @click="finalizeSale"
-        >
-          {{ canFinalize ? 'Finalizar Venda' : 'Selecione cliente e produtos' }}
-        </BaseButton>
-      </div>
+      <h2>Gerenciar Vendas</h2>
+      <BaseButton 
+        variant="primary" 
+        @click="showOrderModal = true"
+        :loading="isCreating"
+      >
+        <span class="btn-icon">🛒</span>
+        Nova Venda
+      </BaseButton>
     </div>
 
-    <div class="sales-grid">
-      <!-- Customer Selection -->
-      <BaseCard title="Selecionar Cliente" class="customer-selection">
-        <div class="customer-search">
+    <!-- Filters -->
+    <BaseCard class="filters-card">
+      <div class="filters-grid">
+        <BaseInput
+          v-model="searchTerm"
+          placeholder="Buscar vendas..."
+          @input="handleSearch"
+          class="search-input"
+        />
+        <BaseSelect
+          v-model="statusFilter"
+          :options="statusOptions"
+          placeholder="Todos os status"
+          @change="handleStatusFilter"
+        />
+        <div class="date-filters">
           <BaseInput
-            v-model="customerSearch"
-            placeholder="Buscar cliente..."
-            @input="filterCustomers"
+            v-model="startDate"
+            type="date"
+            label="Data Inicial"
+            @change="handleDateFilter"
           />
-          <BaseButton variant="info" size="sm" @click="$emit('showModal', 'customer')">
-            ➕
+          <BaseInput
+            v-model="endDate"
+            type="date"
+            label="Data Final"
+            @change="handleDateFilter"
+          />
+        </div>
+      </div>
+    </BaseCard>
+
+    <!-- Loading State -->
+    <BaseLoading 
+      v-if="isLoading" 
+      message="Carregando vendas..."
+      variant="overlay"
+    />
+
+    <!-- Error State -->
+    <BaseCard v-if="error" class="error-card">
+      <div class="error-content">
+        <span class="error-icon">⚠️</span>
+        <div>
+          <h3>Erro ao carregar vendas</h3>
+          <p>{{ error }}</p>
+          <BaseButton @click="refresh" variant="secondary">
+            Tentar novamente
           </BaseButton>
         </div>
-        
-        <div class="customer-list">
-          <div v-if="filteredCustomers.length === 0" class="no-data">
-            Nenhum cliente cadastrado
+      </div>
+    </BaseCard>
+
+    <!-- Sales List -->
+    <div v-else class="sales-list">
+      <!-- Empty State -->
+      <div v-if="!orders || orders.length === 0" class="empty-state">
+        <div class="empty-icon">🛒</div>
+        <h3>Nenhuma venda encontrada</h3>
+        <p>Comece criando sua primeira venda clicando no botão "Nova Venda"</p>
+        <BaseButton 
+          variant="primary" 
+          @click="showOrderModal = true"
+          :loading="isCreating"
+        >
+          <span class="btn-icon">🛒</span>
+          Nova Venda
+        </BaseButton>
+      </div>
+
+      <!-- Orders List -->
+      <BaseCard
+        v-else
+        v-for="order in orders"
+        v-if="order && order.id"
+        :key="order.id"
+        class="order-card"
+        :class="`status-${order.status}`"
+      >
+        <div class="order-header">
+          <div class="order-info">
+            <h3 class="order-number">Pedido #{{ order.id }}</h3>
+            <p class="order-customer" v-if="order.customer">
+              Cliente: {{ order.customer.name }}
+            </p>
+            <p class="order-date">
+              {{ formatDate(order.created_at) }}
+            </p>
           </div>
-          <div
-            v-for="customer in filteredCustomers"
-            :key="customer.id"
-            :class="['customer-item', { selected: selectedCustomer?.id === customer.id }]"
-            @click="selectCustomer(customer)"
+          <div class="order-status">
+            <span 
+              class="status-badge"
+              :class="`status-${order.status}`"
+            >
+              {{ getStatusLabel(order.status) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="order-items">
+          <div 
+            v-for="item in order.items" 
+            :key="item.id"
+            class="order-item"
           >
-            <div class="customer-item-name">{{ customer.name }}</div>
-            <div class="customer-item-class">{{ customer.class || 'Sem turma' }}</div>
+            <div class="item-info">
+              <span class="item-name">{{ item.product.name }}</span>
+              <span class="item-quantity">x{{ item.quantity }}</span>
+            </div>
+            <span class="item-price">{{ formatCurrency(item.price * item.quantity) }}</span>
           </div>
         </div>
 
-        <div v-if="selectedCustomer" class="selected-customer">
-          <span class="customer-name">{{ selectedCustomer.name }}</span>
-          <button class="btn-remove" @click="clearSelectedCustomer">✕</button>
-        </div>
-      </BaseCard>
-
-      <!-- Product Selection -->
-      <BaseCard title="Produtos Disponíveis" class="product-selection">
-        <div class="product-filters">
-          <BaseSelect
-            v-model="selectedCategory"
-            :options="categoryOptions"
-            placeholder="Todas as categorias"
-            @change="filterProducts"
-          />
-          <BaseInput
-            v-model="productSearch"
-            placeholder="Buscar produto..."
-            @input="filterProducts"
-          />
-        </div>
-        
-        <div class="product-grid">
-          <div v-if="filteredProducts.length === 0" class="no-data">
-            Nenhum produto cadastrado
+        <div class="order-footer">
+          <div class="order-total">
+            <span class="total-label">Total:</span>
+            <span class="total-value">{{ formatCurrency(order.total) }}</span>
           </div>
-          <ProductCard
-            v-for="product in filteredProducts"
-            :key="product.id"
-            :product="product"
-            @click="addToCart"
-          />
-        </div>
-      </BaseCard>
-
-      <!-- Cart Section -->
-      <BaseCard title="Carrinho de Compras" class="cart-section">
-        <div class="cart-items">
-          <div v-if="cart.length === 0" class="empty-cart">
-            Carrinho vazio
-          </div>
-          <CartItem
-            v-for="item in cart"
-            :key="item.productId"
-            :item="item"
-            @update-quantity="updateCartQuantity"
-            @remove="removeFromCart"
-          />
-        </div>
-        
-        <div class="cart-total">
-          <div class="total-line">
-            <span>Subtotal:</span>
-            <span>{{ formattedCurrency(cartSubtotal) }}</span>
-          </div>
-          <div class="total-line total-final">
-            <span>Total:</span>
-            <span>{{ formattedCurrency(cartTotal) }}</span>
+          <div class="order-actions">
+            <BaseButton
+              size="sm"
+              variant="info"
+              @click="viewOrder(order)"
+            >
+              Ver Detalhes
+            </BaseButton>
+            <BaseButton
+              size="sm"
+              variant="secondary"
+              @click="editOrder(order)"
+            >
+              Editar
+            </BaseButton>
+            <BaseButton
+              size="sm"
+              variant="danger"
+              @click="cancelOrder(order.id)"
+              v-if="order.status === 'pending'"
+            >
+              Cancelar
+            </BaseButton>
           </div>
         </div>
       </BaseCard>
     </div>
+
+    <!-- Empty State -->
+    <BaseCard v-if="!isLoading && orders.length === 0" class="empty-state">
+      <div class="empty-content">
+        <span class="empty-icon">🛒</span>
+        <h3>Nenhuma venda encontrada</h3>
+        <p>Comece criando sua primeira venda!</p>
+        <BaseButton variant="primary" @click="showOrderModal = true">
+          Nova Venda
+        </BaseButton>
+      </div>
+    </BaseCard>
+
+    <!-- Order Modal -->
+    <OrderModal
+      v-model:show="showOrderModal"
+      :order="selectedOrder"
+      @success="handleOrderSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useAppData } from '@/composables/useStorage'
+import { useOrders } from '@/composables/useOrders'
 import { useFormatter } from '@/composables/useUtils'
-import { useNotifications } from '@/composables/useNotifications'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
-import ProductCard from '@/components/Business/ProductCard.vue'
-import CartItem from '@/components/Business/CartItem.vue'
+import BaseLoading from '@/components/Base/Loading.vue'
+import OrderModal from '@/components/Modals/OrderModal.vue'
+import type { Order } from '@/types/api'
 
-const emit = defineEmits<{
-  showModal: [type: string]
-}>()
-
-const { currency } = useFormatter()
-const { showNotification } = useNotifications()
-const appData = useAppData()
-
-// Reactive data
-const customerSearch = ref('')
-const productSearch = ref('')
-const selectedCategory = ref('')
-const selectedCustomer = ref<any>(null)
-const cart = ref<any[]>([])
-
-// Computed properties
-const formattedCurrency = currency
-
-const canFinalize = computed(() => {
-  return selectedCustomer.value && cart.value.length > 0
-})
-
-const cartSubtotal = computed(() => {
-  return cart.value.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-})
-
-const cartTotal = computed(() => {
-  return cartSubtotal.value
-})
-
-const filteredCustomers = computed(() => {
-  let customers = appData.value.customers
+const {
+  // State
+  orders,
+  searchTerm,
+  statusFilter,
+  startDate,
+  endDate,
   
-  if (customerSearch.value) {
-    const search = customerSearch.value.toLowerCase()
-    customers = customers.filter(customer => 
-      customer.name.toLowerCase().includes(search)
-    )
-  }
+  // Loading states
+  isLoading,
+  isCreating,
+  isUpdating,
+  isDeleting,
   
-  return customers
-})
+  // Errors
+  error,
+  
+  // Methods
+  searchOrders,
+  filterByStatus,
+  filterByDateRange,
+  createOrder,
+  updateOrder,
+  cancelOrder,
+  refresh
+} = useOrders()
 
-const categoryOptions = computed(() => {
-  const categories = [...new Set(appData.value.products.map(p => p.category))]
-  return [
-    { value: '', label: 'Todas as categorias' },
-    ...categories.map(cat => ({
-      value: cat,
-      label: getCategoryName(cat)
-    }))
-  ]
-})
+const { currency, date } = useFormatter()
 
-const filteredProducts = computed(() => {
-  let products = appData.value.products
-  
-  if (productSearch.value) {
-    const search = productSearch.value.toLowerCase()
-    products = products.filter(product => 
-      product.name.toLowerCase().includes(search)
-    )
-  }
-  
-  if (selectedCategory.value) {
-    products = products.filter(product => 
-      product.category === selectedCategory.value
-    )
-  }
-  
-  return products
-})
+// UI State
+const showOrderModal = ref(false)
+const selectedOrder = ref<Order | null>(null)
+
+// Computed
+const formatCurrency = currency
+const formatDate = (dateString: string) => {
+  return date(new Date(dateString))
+}
+
+const statusOptions = [
+  { value: '', label: 'Todos os status' },
+  { value: 'pending', label: 'Pendente' },
+  { value: 'confirmed', label: 'Confirmado' },
+  { value: 'processing', label: 'Processando' },
+  { value: 'shipped', label: 'Enviado' },
+  { value: 'delivered', label: 'Entregue' },
+  { value: 'cancelled', label: 'Cancelado' }
+]
 
 // Methods
-const getCategoryName = (category: string) => {
-  const categories = {
-    bebida: 'Bebida',
-    salgado: 'Salgado',
-    doce: 'Doce',
-    lanche: 'Lanche',
-    fruta: 'Fruta',
-    outros: 'Outros'
-  }
-  return categories[category as keyof typeof categories] || category
+const handleSearch = () => {
+  searchOrders(searchTerm.value)
 }
 
-const selectCustomer = (customer: any) => {
-  selectedCustomer.value = customer
+const handleStatusFilter = () => {
+  filterByStatus(statusFilter.value)
 }
 
-const clearSelectedCustomer = () => {
-  selectedCustomer.value = null
+const handleDateFilter = () => {
+  if (startDate.value && endDate.value) {
+    filterByDateRange(startDate.value, endDate.value)
+  }
 }
 
-const addToCart = (product: any) => {
-  // Check stock
-  if (product.stock !== undefined && product.stock <= 0) {
-    showNotification('Produto fora de estoque', 'warning')
-    return
+const getStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    pending: 'Pendente',
+    confirmed: 'Confirmado',
+    processing: 'Processando',
+    shipped: 'Enviado',
+    delivered: 'Entregue',
+    cancelled: 'Cancelado'
   }
-
-  const existingItem = cart.value.find(item => item.productId === product.id)
-  
-  if (existingItem) {
-    // Check stock limit
-    if (product.stock !== undefined && existingItem.quantity >= product.stock) {
-      showNotification('Quantidade máxima em estoque atingida', 'warning')
-      return
-    }
-    existingItem.quantity++
-  } else {
-    cart.value.push({
-      productId: product.id,
-      productName: product.name,
-      price: product.price,
-      quantity: 1
-    })
-  }
-
-  showNotification(`${product.name} adicionado ao carrinho`, 'success')
+  return labels[status] || status
 }
 
-const updateCartQuantity = (productId: number, change: number) => {
-  const item = cart.value.find(item => item.productId === productId)
-  if (!item) return
-
-  const product = appData.value.products.find(p => p.id === productId)
-  const newQuantity = item.quantity + change
-
-  if (newQuantity <= 0) {
-    removeFromCart(productId)
-    return
-  }
-
-  // Check stock
-  if (product && product.stock !== undefined && newQuantity > product.stock) {
-    showNotification('Quantidade máxima em estoque atingida', 'warning')
-    return
-  }
-
-  item.quantity = newQuantity
+const viewOrder = (order: Order) => {
+  selectedOrder.value = order
+  showOrderModal.value = true
 }
 
-const removeFromCart = (productId: number) => {
-  cart.value = cart.value.filter(item => item.productId !== productId)
+const editOrder = (order: Order) => {
+  selectedOrder.value = order
+  showOrderModal.value = true
 }
 
-const clearCart = () => {
-  cart.value = []
-  showNotification('Carrinho limpo', 'success')
+const handleOrderSuccess = (order: Order) => {
+  showOrderModal.value = false
+  selectedOrder.value = null
 }
 
-const finalizeSale = () => {
-  if (!selectedCustomer.value || cart.value.length === 0) {
-    showNotification('Selecione um cliente e adicione produtos', 'warning')
-    return
+const cancelOrderConfirm = async (id: number) => {
+  if (confirm('Tem certeza que deseja cancelar este pedido?')) {
+    await cancelOrder(id)
   }
-
-  // Check stock availability
-  for (const item of cart.value) {
-    const product = appData.value.products.find(p => p.id === item.productId)
-    if (product && product.stock !== undefined && product.stock < item.quantity) {
-      showNotification(`Estoque insuficiente para ${product.name}`, 'error')
-      return
-    }
-  }
-
-  // Create sale
-  const sale = {
-    id: Date.now(),
-    customerId: selectedCustomer.value.id,
-    customerName: selectedCustomer.value.name,
-    items: [...cart.value],
-    total: cartTotal.value,
-    date: new Date().toLocaleDateString('pt-BR'),
-    timestamp: Date.now()
-  }
-
-  // Update stock
-  cart.value.forEach(item => {
-    const product = appData.value.products.find(p => p.id === item.productId)
-    if (product && product.stock !== undefined) {
-      product.stock -= item.quantity
-    }
-  })
-
-  // Save sale
-  appData.value.sales.push(sale)
-
-  // Clear cart and selection
-  cart.value = []
-  selectedCustomer.value = null
-  customerSearch.value = ''
-  productSearch.value = ''
-  selectedCategory.value = ''
-
-  showNotification(`Venda finalizada! Total: ${formattedCurrency(sale.total)}`, 'success')
 }
 </script>
 
 <style lang="scss" scoped>
+.sales {
+  padding: var(--spacing-6);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
 .sales-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-6);
-  flex-wrap: wrap;
-  gap: var(--spacing-4);
-
+  
   h2 {
-    font-size: var(--font-size-3xl);
-    color: var(--primary-dark);
     margin: 0;
+    color: var(--primary-dark);
   }
 }
 
-.sales-actions {
-  display: flex;
-  gap: var(--spacing-3);
-}
-
-.sales-grid {
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  gap: var(--spacing-6);
+.filters-card {
   margin-bottom: var(--spacing-6);
 }
 
-.customer-selection,
-.product-selection,
-.cart-section {
-  height: fit-content;
+.filters-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--spacing-4);
+  align-items: end;
 }
 
-.customer-search {
+.search-input {
+  min-width: 200px;
+}
+
+.date-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-3);
+}
+
+.error-card {
+  margin-bottom: var(--spacing-6);
+}
+
+.error-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  
+  .error-icon {
+    font-size: var(--font-size-2xl);
+  }
+  
+  h3 {
+    margin: 0 0 var(--spacing-2) 0;
+    color: var(--danger);
+  }
+  
+  p {
+    margin: 0 0 var(--spacing-3) 0;
+    color: var(--gray-600);
+  }
+}
+
+.sales-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.order-card {
+  transition: all var(--transition-normal);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  &.status-pending {
+    border-left: 4px solid var(--warning);
+  }
+  
+  &.status-confirmed {
+    border-left: 4px solid var(--info);
+  }
+  
+  &.status-processing {
+    border-left: 4px solid var(--primary-medium);
+  }
+  
+  &.status-shipped {
+    border-left: 4px solid var(--accent-light);
+  }
+  
+  &.status-delivered {
+    border-left: 4px solid var(--success);
+  }
+  
+  &.status-cancelled {
+    border-left: 4px solid var(--danger);
+  }
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-4);
+}
+
+.order-info {
+  flex: 1;
+  
+  .order-number {
+    margin: 0 0 var(--spacing-1) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--primary-dark);
+  }
+  
+  .order-customer,
+  .order-date {
+    margin: 0 0 var(--spacing-1) 0;
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+  }
+}
+
+.order-status {
+  .status-badge {
+    padding: var(--spacing-1) var(--spacing-3);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    &.status-pending {
+      background: var(--warning-light);
+      color: var(--warning-dark);
+    }
+    
+    &.status-confirmed {
+      background: var(--info-light);
+      color: var(--info-dark);
+    }
+    
+    &.status-processing {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+    }
+    
+    &.status-shipped {
+      background: var(--accent-light);
+      color: var(--accent-dark);
+    }
+    
+    &.status-delivered {
+      background: var(--success-light);
+      color: var(--success-dark);
+    }
+    
+    &.status-cancelled {
+      background: var(--danger-light);
+      color: var(--danger-dark);
+    }
+  }
+}
+
+.order-items {
+  margin-bottom: var(--spacing-4);
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-2) 0;
+  border-bottom: 1px solid var(--gray-200);
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  .item-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    
+    .item-name {
+      font-weight: 500;
+      color: var(--gray-800);
+    }
+    
+    .item-quantity {
+      font-size: var(--font-size-sm);
+      color: var(--gray-600);
+    }
+  }
+  
+  .item-price {
+    font-weight: 600;
+    color: var(--primary-dark);
+  }
+}
+
+.order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--spacing-3);
+  border-top: 1px solid var(--gray-200);
+}
+
+.order-total {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  
+  .total-label {
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+  }
+  
+  .total-value {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--primary-dark);
+  }
+}
+
+.order-actions {
   display: flex;
   gap: var(--spacing-2);
-  margin-bottom: var(--spacing-4);
 }
 
-.customer-list {
-  max-height: 200px;
-  overflow-y: auto;
-  margin-bottom: var(--spacing-4);
-}
-
-.customer-item {
-  padding: var(--spacing-3);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover {
-    background: var(--gray-100);
-    border-color: var(--primary-light);
-  }
-
-  &.selected {
-    background: var(--primary-light);
-    color: var(--white);
-    border-color: var(--primary-light);
-  }
-}
-
-.customer-item-name {
-  font-weight: 500;
-  margin-bottom: var(--spacing-1);
-}
-
-.customer-item-class {
-  font-size: var(--font-size-sm);
-  color: var(--gray-600);
-}
-
-.customer-item.selected .customer-item-class {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.selected-customer {
-  background: var(--primary-light);
-  color: var(--white);
-  padding: var(--spacing-3);
-  border-radius: var(--radius-md);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.btn-remove {
-  background: var(--danger);
-  color: var(--white);
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-size-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.product-filters {
-  display: flex;
-  gap: var(--spacing-3);
-  margin-bottom: var(--spacing-4);
-  flex-wrap: wrap;
-}
-
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--spacing-3);
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.cart-items {
-  max-height: 300px;
-  overflow-y: auto;
-  margin-bottom: var(--spacing-4);
-}
-
-.cart-total {
-  border-top: 2px solid var(--gray-200);
-  padding-top: var(--spacing-4);
-}
-
-.total-line {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2);
-}
-
-.total-final {
-  font-size: var(--font-size-lg);
-  font-weight: bold;
-  color: var(--primary-dark);
-  border-top: 1px solid var(--gray-300);
-  padding-top: var(--spacing-2);
-}
-
-.empty-cart {
+.empty-state {
   text-align: center;
-  color: var(--gray-500);
-  font-style: italic;
-  padding: var(--spacing-4);
+  padding: var(--spacing-12);
 }
 
-@media (max-width: 1024px) {
-  .sales-grid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-4);
+.empty-content {
+  .empty-icon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-4);
+  }
+  
+  h3 {
+    margin: 0 0 var(--spacing-2) 0;
+    color: var(--gray-700);
+  }
+  
+  p {
+    margin: 0 0 var(--spacing-6) 0;
+    color: var(--gray-500);
   }
 }
 
+// Mobile optimizations
 @media (max-width: 768px) {
+  .sales {
+    padding: var(--spacing-4);
+  }
+  
   .sales-header {
     flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-  }
-  
-  .sales-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .product-filters {
-    flex-direction: column;
+    gap: var(--spacing-4);
     align-items: stretch;
   }
   
-  .product-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-3);
+  }
+  
+  .date-filters {
+    grid-template-columns: 1fr;
+  }
+  
+  .order-header {
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+  
+  .order-footer {
+    flex-direction: column;
+    gap: var(--spacing-3);
+    align-items: stretch;
+  }
+  
+  .order-actions {
+    justify-content: stretch;
+    
+    > * {
+      flex: 1;
+    }
+  }
+}
+
+// Empty State Styles
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-8) var(--spacing-4);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-4);
+  opacity: 0.6;
+}
+
+.empty-state h3 {
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-2);
+  font-size: var(--font-size-lg);
+}
+
+.empty-state p {
+  color: var(--gray-500);
+  margin-bottom: var(--spacing-6);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 480px) {
+  .sales {
+    padding: var(--spacing-2);
+  }
+  
+  .order-actions {
+    flex-direction: column;
   }
 }
 </style>
