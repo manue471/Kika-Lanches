@@ -62,7 +62,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth } from '../composables/useAuth'
 import { useNotifications } from '@/composables/useNotifications'
 
 const router = useRouter()
@@ -124,12 +124,12 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 60px 20px 40px;
+  padding: 16px;
   margin-top: 60px;
 
   .logo {
-    width: 120px;
-    height: 120px;
+    max-width: 200px;
+    max-height: 200 px;
     object-fit: contain;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
     transition: transform 0.3s ease;

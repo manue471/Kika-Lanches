@@ -6,8 +6,8 @@
     <div class="product-card-category">{{ categoryName }}</div>
     <div class="product-card-name">{{ product.name }}</div>
     <div class="product-card-price">{{ formattedPrice }}</div>
-    <div v-if="showStock && product.stock !== undefined" :class="stockClasses">
-      Estoque: {{ product.stock }}
+    <div v-if="showStock && product.stock_quantity !== undefined" :class="stockClasses">
+      Estoque: {{ product.stock_quantity }}
     </div>
   </div>
 </template>
@@ -21,7 +21,7 @@ interface Product {
   name: string
   price: number
   category: string
-  stock?: number
+  stock_quantity?: number
 }
 
 interface Props {
@@ -44,14 +44,14 @@ const { currency } = useFormatter()
 const formattedPrice = computed(() => currency(props.product.price))
 
 const isOutOfStock = computed(() => {
-  return props.product.stock !== undefined && props.product.stock <= 0
+  return props.product.stock_quantity !== undefined && props.product.stock_quantity <= 0
 })
 
 const stockClasses = computed(() => {
-  if (!props.product.stock) return ''
+  if (!props.product.stock_quantity) return ''
   
-  if (props.product.stock === 0) return 'product-card-stock out-of-stock'
-  if (props.product.stock <= 5) return 'product-card-stock low-stock'
+  if (props.product.stock_quantity === 0) return 'product-card-stock out-of-stock'
+  if (props.product.stock_quantity <= 5) return 'product-card-stock low-stock'
   return 'product-card-stock'
 })
 

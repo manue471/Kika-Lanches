@@ -49,6 +49,7 @@
     <BaseLoading 
       v-if="isLoading" 
       message="Carregando vendas..."
+      :show="isLoading"
       variant="overlay"
     />
 
@@ -84,79 +85,74 @@
       </div>
 
       <!-- Orders List -->
-      <BaseCard
-        v-else
-        v-for="order in orders"
-        v-if="order && order.id"
-        :key="order.id"
-        class="order-card"
-        :class="`status-${order.status}`"
-      >
-        <div class="order-header">
-          <div class="order-info">
-            <h3 class="order-number">Pedido #{{ order.id }}</h3>
-            <p class="order-customer" v-if="order.customer">
-              Cliente: {{ order.customer.name }}
-            </p>
-            <p class="order-date">
-              {{ formatDate(order.created_at) }}
-            </p>
-          </div>
-          <div class="order-status">
-            <span 
-              class="status-badge"
-              :class="`status-${order.status}`"
-            >
-              {{ getStatusLabel(order.status) }}
-            </span>
-          </div>
-        </div>
-
-        <div class="order-items">
-          <div 
-            v-for="item in order.items" 
-            :key="item.id"
-            class="order-item"
-          >
-            <div class="item-info">
-              <span class="item-name">{{ item.product.name }}</span>
-              <span class="item-quantity">x{{ item.quantity }}</span>
+      <div v-else>
+        <BaseCard
+          v-for="order in orders"
+          :key="order.id"
+          class="order-card"
+          :class="`status-${order.status}`"
+        >
+          <div class="order-header" v-if="order && order.id">
+            <div class="order-info">
+              <h3 class="order-number">Pedido #{{ order.id }}</h3>
+              <p class="order-customer" v-if="order.customer">
+                Cliente: {{ order.customer.name }}
+              </p>
+              <p class="order-date">
+                {{ formatDate(order.created_at) }}
+              </p>
             </div>
-            <span class="item-price">{{ formatCurrency(item.price * item.quantity) }}</span>
+            <div class="order-status">
+              <StatusBadge :status="order.status" />
+            </div>
           </div>
-        </div>
 
-        <div class="order-footer">
-          <div class="order-total">
-            <span class="total-label">Total:</span>
-            <span class="total-value">{{ formatCurrency(order.total) }}</span>
+          <div class="order-items">
+            <div 
+              v-for="item in (order as any)?.order_products || []" 
+              :key="item.id"
+              class="order-item"
+            >
+              <div class="item-info">
+                <span class="item-name">{{ item.product.name }}</span>
+                <span class="item-quantity">x{{ item.quantity }}</span>
+              </div>
+              <span class="item-price">{{ formatCurrency(item.total_price) }}</span>
+            </div>
           </div>
-          <div class="order-actions">
-            <BaseButton
-              size="sm"
-              variant="info"
-              @click="viewOrder(order)"
-            >
-              Ver Detalhes
-            </BaseButton>
-            <BaseButton
-              size="sm"
-              variant="secondary"
-              @click="editOrder(order)"
-            >
-              Editar
-            </BaseButton>
-            <BaseButton
-              size="sm"
-              variant="danger"
-              @click="cancelOrder(order.id)"
-              v-if="order.status === 'pending'"
-            >
-              Cancelar
-            </BaseButton>
+
+          <div class="order-footer">
+            <div class="order-total">
+              <span class="total-label">Total:</span>
+              <span class="total-value">{{ formatCurrency(order.total_amount) }}</span>
+            </div>
+            <div class="order-actions">
+              <BaseButton
+                size="sm"
+                variant="info"
+                @click="viewOrder(order)"
+              >
+                Ver Detalhes
+              </BaseButton>
+              <BaseButton
+                size="sm"
+                variant="secondary"
+                @click="editOrder(order)"
+              >
+                Editar
+              </BaseButton>
+              <BaseButton
+                size="sm"
+                variant="danger"
+                @click="cancelOrderConfirm(order.id)"
+                v-if="order.status === 'pending'"
+              >
+                Cancelar
+              </BaseButton>
+            </div>
           </div>
-        </div>
-      </BaseCard>
+        </BaseCard>
+      </div>
     </div>
 
     <!-- Empty State -->
@@ -174,14 +170,14 @@
     <!-- Order Modal -->
     <OrderModal
       v-model:show="showOrderModal"
-      :order="selectedOrder"
+      :order-id="selectedOrderId"
       @success="handleOrderSuccess"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useOrders } from '@/composables/useOrders'
 import { useFormatter } from '@/composables/useUtils'
 import BaseCard from '@/components/Base/Card.vue'
@@ -189,7 +185,8 @@ import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
-import OrderModal from '@/components/Modals/OrderModal.vue'
+import OrderModal from '../components/Modals/OrderModal.vue'
+import StatusBadge from '@/components/Business/StatusBadge.vue'
 import type { Order } from '@/types/api'
 
 const {
@@ -203,8 +200,6 @@ const {
   // Loading states
   isLoading,
   isCreating,
-  isUpdating,
-  isDeleting,
   
   // Errors
   error,
@@ -213,8 +208,6 @@ const {
   searchOrders,
   filterByStatus,
   filterByDateRange,
-  createOrder,
-  updateOrder,
   cancelOrder,
   refresh
 } = useOrders()
@@ -223,7 +216,7 @@ const { currency, date } = useFormatter()
 
 // UI State
 const showOrderModal = ref(false)
-const selectedOrder = ref<Order | null>(null)
+const selectedOrderId = ref<number | null>(null)
 
 // Computed
 const formatCurrency = currency
@@ -256,31 +249,22 @@ const handleDateFilter = () => {
   }
 }
 
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    pending: 'Pendente',
-    confirmed: 'Confirmado',
-    processing: 'Processando',
-    shipped: 'Enviado',
-    delivered: 'Entregue',
-    cancelled: 'Cancelado'
-  }
-  return labels[status] || status
-}
 
 const viewOrder = (order: Order) => {
-  selectedOrder.value = order
+  selectedOrderId.value = order.id
   showOrderModal.value = true
 }
 
-const editOrder = (order: Order) => {
-  selectedOrder.value = order
+const editOrder = async (order: Order) => {
+  console.log('Editing order:', order)
+  selectedOrderId.value = order.id
   showOrderModal.value = true
+  console.log('Modal should show:', showOrderModal.value)
 }
 
-const handleOrderSuccess = (order: Order) => {
+const handleOrderSuccess = () => {
   showOrderModal.value = false
-  selectedOrder.value = null
+  selectedOrderId.value = null
 }
 
 const cancelOrderConfirm = async (id: number) => {
@@ -362,6 +346,8 @@ const cancelOrderConfirm = async (id: number) => {
 
 .order-card {
   transition: all var(--transition-normal);
+
+  margin: 8px 0;
   
   &:hover {
     transform: translateY(-2px);
@@ -418,46 +404,6 @@ const cancelOrderConfirm = async (id: number) => {
   }
 }
 
-.order-status {
-  .status-badge {
-    padding: var(--spacing-1) var(--spacing-3);
-    border-radius: var(--radius-full);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    
-    &.status-pending {
-      background: var(--warning-light);
-      color: var(--warning-dark);
-    }
-    
-    &.status-confirmed {
-      background: var(--info-light);
-      color: var(--info-dark);
-    }
-    
-    &.status-processing {
-      background: var(--primary-light);
-      color: var(--primary-dark);
-    }
-    
-    &.status-shipped {
-      background: var(--accent-light);
-      color: var(--accent-dark);
-    }
-    
-    &.status-delivered {
-      background: var(--success-light);
-      color: var(--success-dark);
-    }
-    
-    &.status-cancelled {
-      background: var(--danger-light);
-      color: var(--danger-dark);
-    }
-  }
-}
 
 .order-items {
   margin-bottom: var(--spacing-4);

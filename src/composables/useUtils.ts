@@ -28,8 +28,8 @@ export const useValidator = () => {
     return isPositiveNumber(price) && price >= 0.01
   }
 
-  const isValidStock = (stock: string | number): boolean => {
-    return stock === '' || (Number.isInteger(Number(stock)) && Number(stock) >= 0)
+  const isValidStockQuantity = (stock_quantity: string | number): boolean => {
+    return stock_quantity === '' || (Number.isInteger(Number(stock_quantity)) && Number(stock_quantity) >= 0)
   }
 
   return {
@@ -38,7 +38,7 @@ export const useValidator = () => {
     isPositiveNumber,
     isRequired,
     isValidPrice,
-    isValidStock
+    isValidStockQuantity
   }
 }
 

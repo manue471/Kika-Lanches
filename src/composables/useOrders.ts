@@ -29,9 +29,13 @@ export function useOrders() {
     try {
       loading.setLoading(true)
       error.value = null
+      console.log('Loading orders...')
       const response = await ordersService.list()
-      orders.value = response
+      console.log('Orders response:', response)
+      orders.value = response.data
+      console.log('Orders set:', orders.value)
     } catch (err) {
+      console.error('Error loading orders:', err)
       error.value = 'Erro ao carregar pedidos'
       notifications.error('Erro ao carregar pedidos')
     } finally {
@@ -103,6 +107,19 @@ export function useOrders() {
       loading.setLoading(false)
     }
   }
+
+  const getOrderById = async (id: number) => {
+    try {
+      loading.setLoading(true)
+      const response = await ordersService.getById(id)
+      return response
+    } catch (err) {
+      notifications.error('Erro ao carregar pedido')
+      throw err
+    } finally {
+      loading.setLoading(false)
+    }
+  }
   
   // Filter methods
   const searchOrders = (term: string) => {
@@ -129,11 +146,9 @@ export function useOrders() {
     loadOrders()
   }
   
-  // Initialize
   loadOrders()
   
   return {
-    // State
     orders,
     searchTerm,
     statusFilter,
@@ -141,7 +156,6 @@ export function useOrders() {
     endDate,
     error,
     
-    // Loading states
     isLoading,
     isCreating,
     isUpdating,
@@ -153,9 +167,11 @@ export function useOrders() {
     updateOrder,
     deleteOrder,
     cancelOrder,
+    getOrderById,
     searchOrders,
     filterByStatus,
     filterByDateRange,
+    refresh: loadOrders,
     clearFilters
   }
 }

@@ -37,8 +37,9 @@
             id="category"
             v-model="form.category_id"
             :options="categoryOptions"
-            placeholder="Selecione uma categoria"
+            :placeholder="isLoadingCategories ? 'Carregando categorias...' : 'Selecione uma categoria'"
             :error="errors.category_id"
+            :disabled="isLoadingCategories"
           />
         </div>
 
@@ -59,14 +60,14 @@
 
         <!-- Estoque -->
         <div class="form-group">
-          <label for="stock" class="form-label">Estoque</label>
+          <label for="stock_quantity" class="form-label">Estoque</label>
           <BaseInput
-            id="stock"
-            v-model="form.stock"
+            id="stock_quantity"
+            v-model="form.stock_quantity"
             type="number"
             min="0"
             placeholder="0"
-            :error="errors.stock"
+            :error="errors.stock_quantity"
           />
         </div>
 
@@ -157,7 +158,7 @@ const emit = defineEmits<{
 }>()
 
 const { createProduct, updateProduct, isCreating, isUpdating } = useProducts()
-const { categories, categoryOptions } = useCategories()
+const { categoryOptions, isLoading: isLoadingCategories } = useCategories()
 
 // Form state
 const form = ref<CreateProductRequest & UpdateProductRequest>({
@@ -167,7 +168,7 @@ const form = ref<CreateProductRequest & UpdateProductRequest>({
   sku: '',
   category_id: undefined,
   is_active: true,
-  stock: 0,
+  stock_quantity: 0,
   image: ''
 })
 
@@ -183,7 +184,7 @@ const resetForm = () => {
     sku: '',
     category_id: undefined,
     is_active: true,
-    stock: 0,
+    stock_quantity: 0,
     image: ''
   }
   errors.value = {}
@@ -199,7 +200,7 @@ watch(() => props.product, (product) => {
       sku: product.sku || '',
       category_id: product.category_id,
       is_active: product.is_active,
-      stock: product.stock || 0,
+      stock_quantity: product.stock_quantity || 0,
       image: product.image || ''
     }
   } else {
@@ -225,8 +226,8 @@ const validateForm = (): boolean => {
     errors.value.price = 'Preço deve ser maior que zero'
   }
 
-  if (form.value.stock !== undefined && form.value.stock < 0) {
-    errors.value.stock = 'Estoque não pode ser negativo'
+  if (form.value.stock_quantity !== undefined && form.value.stock_quantity < 0) {
+    errors.value.stock_quantity = 'Estoque não pode ser negativo'
   }
 
   return Object.keys(errors.value).length === 0

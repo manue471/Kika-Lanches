@@ -28,7 +28,7 @@ export function useCustomers() {
       loading.setLoading(true)
       error.value = null
       const response = await customersService.list()
-      customers.value = response
+      customers.value = response.data
     } catch (err) {
       error.value = 'Erro ao carregar clientes'
       notifications.error('Erro ao carregar clientes')

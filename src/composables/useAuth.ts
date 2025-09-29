@@ -93,22 +93,23 @@ export function useAuth() {
   }
 
   const checkAuth = async () => {
-    const token = getAuthToken()
-    if (token && !user.value) {
-      try {
+    try {
+      const token = getAuthToken()
+      if (token && !user.value) {
         loading.setLoading(true)
         const response = await authService.getMe()
         user.value = response
         return true
-      } catch (error) {
-        // If getMe fails, user is not authenticated
-        clearAuth()
-        return false
-      } finally {
-        loading.setLoading(false)
       }
+      return isAuthenticated.value
+    } catch (error) {
+      console.error('Auth check error:', error)
+      // If getMe fails, user is not authenticated
+      clearAuth()
+      return false
+    } finally {
+      loading.setLoading(false)
     }
-    return isAuthenticated.value
   }
 
   const requireAuth = async () => {

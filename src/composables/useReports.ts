@@ -37,10 +37,13 @@ export function useReports() {
   const getSalesReport = async (filters?: ReportFilters) => {
     try {
       loading.setLoading(true)
+      console.log('Fetching sales report with filters:', filters)
       const response = await reportsService.getSalesReport(filters)
       salesReport.value = response
+      console.log('Sales report response:', response)
       return response
     } catch (err) {
+      console.error('Error fetching sales report:', err)
       notifications.error('Erro ao gerar relatório de vendas')
       throw err
     } finally {

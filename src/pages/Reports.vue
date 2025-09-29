@@ -99,7 +99,7 @@
           </div>
           <div class="summary-item">
             <span class="summary-label">Faturamento Total:</span>
-            <span class="summary-value">{{ formatCurrency(salesReport.summary.total_revenue) }}</span>
+            <span class="summary-value">{{ formatCurrency(salesReport.summary.total_sales) }}</span>
           </div>
           <div class="summary-item">
             <span class="summary-label">Ticket Médio:</span>
@@ -108,7 +108,7 @@
           <div class="summary-item">
             <span class="summary-label">Período:</span>
             <span class="summary-value">
-              {{ formatDate(salesReport.period.from) }} - {{ formatDate(salesReport.period.to) }}
+              {{ formatDate(salesReport.period.start_date) }} - {{ formatDate(salesReport.period.end_date) }}
             </span>
           </div>
         </div>
@@ -117,12 +117,12 @@
       <BaseCard title="Vendas por Status" class="report-card">
         <div class="status-grid">
           <div 
-            v-for="(count, status) in salesReport.orders_by_status" 
+            v-for="(data, status) in salesReport.orders_by_status" 
             :key="status"
             class="status-item"
           >
             <span class="status-label">{{ getStatusLabel(String(status)) }}:</span>
-            <span class="status-value">{{ count }}</span>
+            <span class="status-value">{{ data.count }} ({{ formatCurrency(data.total) }})</span>
           </div>
         </div>
       </BaseCard>
@@ -131,14 +131,14 @@
         <div class="top-products">
           <div 
             v-for="(product, index) in salesReport.top_products" 
-            :key="product.product_id"
+            :key="product.id"
             class="product-item"
           >
             <div class="product-rank">{{ index + 1 }}</div>
             <div class="product-info">
-              <div class="product-name">{{ product.product_name }}</div>
+              <div class="product-name">{{ product.name }}</div>
               <div class="product-stats">
-                {{ product.quantity_sold }} vendidos • {{ formatCurrency(product.revenue) }}
+                {{ product.total_quantity }} vendidos • {{ formatCurrency(product.total_revenue) }}
               </div>
             </div>
           </div>

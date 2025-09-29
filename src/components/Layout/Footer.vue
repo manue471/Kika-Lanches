@@ -1,6 +1,5 @@
 <template>
   <footer class="footer">
-    <p>criado pela B20 Conteúdo Digital - www.b20.com.br</p>
   </footer>
 </template>
 

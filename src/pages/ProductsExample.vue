@@ -106,13 +106,13 @@
             <span class="price-value">{{ formatCurrency(product.price) }}</span>
           </div>
           
-          <div class="product-stock" v-if="product.stock !== undefined">
+          <div class="product-stock" v-if="product.stock_quantity !== undefined">
             <span class="stock-label">Estoque:</span>
             <span 
               class="stock-value"
-              :class="{ 'low-stock': product.stock <= 5 }"
+              :class="{ 'low-stock': product.stock_quantity <= 5 }"
             >
-              {{ product.stock }} unidades
+              {{ product.stock_quantity }} unidades
             </span>
           </div>
 

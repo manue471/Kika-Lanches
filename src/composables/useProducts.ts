@@ -10,7 +10,7 @@ export function useProducts() {
   
   // Search and filters
   const searchTerm = ref('')
-  const selectedCategory = ref<number | null>(null)
+  const selectedCategory = ref<number | undefined>(undefined)
   const showOnlyActive = ref(true)
   
   // State
@@ -24,13 +24,21 @@ export function useProducts() {
   const isUpdating = computed(() => loading.isLoading.value)
   const isDeleting = computed(() => loading.isLoading.value)
   
+  // Category options for dropdowns
+  const categoryOptions = computed(() => {
+    return categories.value.map(category => ({
+      value: category.id,
+      label: category.name
+    }))
+  })
+  
   // Methods
   const loadProducts = async () => {
     try {
       loading.setLoading(true)
       error.value = null
       const response = await productsService.list()
-      products.value = response
+      products.value = response.data
     } catch (err) {
       error.value = 'Erro ao carregar produtos'
       notifications.error('Erro ao carregar produtos')
@@ -42,7 +50,7 @@ export function useProducts() {
   const loadCategories = async () => {
     try {
       const response = await categoriesService.list()
-      categories.value = response
+      categories.value = response.data
     } catch (err) {
       notifications.error('Erro ao carregar categorias')
     }
@@ -101,7 +109,7 @@ export function useProducts() {
     loadProducts()
   }
   
-  const filterByCategory = (categoryId: number | null) => {
+  const filterByCategory = (categoryId: number | undefined) => {
     selectedCategory.value = categoryId
     loadProducts()
   }
@@ -113,9 +121,29 @@ export function useProducts() {
   
   const clearFilters = () => {
     searchTerm.value = ''
-    selectedCategory.value = null
+    selectedCategory.value = undefined
     showOnlyActive.value = true
     loadProducts()
+  }
+  
+  const toggleActive = async (id: number) => {
+    try {
+      loading.setLoading(true)
+      const product = products.value.find(p => p.id === id)
+      if (product) {
+        const updatedProduct = await productsService.update(id, { is_active: !product.is_active })
+        const index = products.value.findIndex(p => p.id === id)
+        if (index !== -1) {
+          products.value[index] = updatedProduct
+        }
+        notifications.success('Status do produto atualizado!')
+      }
+    } catch (err) {
+      notifications.error('Erro ao atualizar status do produto')
+      throw err
+    } finally {
+      loading.setLoading(false)
+    }
   }
   
   // Initialize
@@ -136,6 +164,10 @@ export function useProducts() {
     isCreating,
     isUpdating,
     isDeleting,
+    isToggling: isUpdating,
+    
+    // Computed
+    categoryOptions,
     
     // Methods
     loadProducts,
@@ -146,6 +178,8 @@ export function useProducts() {
     searchProducts,
     filterByCategory,
     toggleActiveFilter,
+    toggleActive,
+    refresh: loadProducts,
     clearFilters
   }
 }

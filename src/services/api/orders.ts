@@ -2,15 +2,18 @@ import { apiClient } from './client'
 import type { 
   Order, 
   CreateOrderRequest,
-  OrderItem
+  OrderItem,
+  PaginatedResponse,
+  BulkUpdateRequest,
+  BulkUpdateResponse
 } from '@/types/api'
 
 export class OrdersService {
   /**
    * List orders
    */
-  async list(): Promise<Order[]> {
-    return await apiClient.get<Order[]>('/orders')
+  async list(): Promise<PaginatedResponse<Order>> {
+    return await apiClient.get<PaginatedResponse<Order>>('/orders')
   }
 
   /**
@@ -88,10 +91,10 @@ export class OrdersService {
    */
   async addItems(id: number, items: OrderItem[]): Promise<Order> {
     const order = await this.getById(id)
-    const updatedItems = [...order.products, ...items]
+    const updatedItems = [...order.order_products, ...items]
     
     return await apiClient.put<Order>(`/orders/${id}`, {
-      products: updatedItems
+      order_products: updatedItems
     })
   }
 
@@ -100,12 +103,12 @@ export class OrdersService {
    */
   async removeItems(id: number, productIds: number[]): Promise<Order> {
     const order = await this.getById(id)
-    const updatedItems = order.products.filter(
-      item => !productIds.includes(item.product_id)
+    const updatedItems = order.order_products.filter(
+      (item: any) => !productIds.includes(item.product_id)
     )
     
     return await apiClient.put<Order>(`/orders/${id}`, {
-      products: updatedItems
+      order_products: updatedItems
     })
   }
 
@@ -169,7 +172,7 @@ export class OrdersService {
   /**
    * Get orders by status
    */
-  async getByStatus(status: Order['status']): Promise<Order[]> {
+  async getByStatus(_status: Order['status']): Promise<Order[]> {
     // This would typically be handled by the backend
     // For now, return empty array
     return []
@@ -178,10 +181,17 @@ export class OrdersService {
   /**
    * Get orders by date range
    */
-  async getByDateRange(startDate: string, endDate: string): Promise<Order[]> {
+  async getByDateRange(_startDate: string, _endDate: string): Promise<Order[]> {
     // This would typically be handled by the backend
     // For now, return empty array
     return []
+  }
+
+  /**
+   * Bulk update orders status
+   */
+  async bulkUpdateStatus(data: BulkUpdateRequest): Promise<BulkUpdateResponse> {
+    return await apiClient.post<BulkUpdateResponse>('/orders/bulk-update', data)
   }
 }
 

@@ -18,13 +18,21 @@ export function useCategories() {
   const isUpdating = computed(() => loading.isLoading.value)
   const isDeleting = computed(() => loading.isLoading.value)
   
+  // Category options for dropdowns
+  const categoryOptions = computed(() => {
+    return categories.value.map(category => ({
+      value: category.id,
+      label: category.name
+    }))
+  })
+  
   // Methods
   const loadCategories = async () => {
     try {
       loading.setLoading(true)
       error.value = null
       const response = await categoriesService.list()
-      categories.value = response
+      categories.value = response.data
     } catch (err) {
       error.value = 'Erro ao carregar categorias'
       notifications.error('Erro ao carregar categorias')
@@ -93,6 +101,9 @@ export function useCategories() {
     isCreating,
     isUpdating,
     isDeleting,
+    
+    // Computed
+    categoryOptions,
     
     // Methods
     loadCategories,

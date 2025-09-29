@@ -39,6 +39,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/categories',
+      name: 'categories',
+      component: () => import('@/pages/Categories.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/customers',
       name: 'customers',
       component: () => import('@/pages/Customers.vue'),
@@ -49,7 +55,19 @@ const router = createRouter({
       name: 'reports',
       component: () => import('@/pages/Reports.vue'),
       meta: { requiresAuth: true }
-    }
+    },
+  {
+    path: '/users',
+    name: 'users',
+    component: () => import('@/pages/Users.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/customer-reports',
+    name: 'customer-reports',
+    component: () => import('@/pages/CustomerReports.vue'),
+    meta: { requiresAuth: true }
+  }
   ]
 })
 
@@ -58,6 +76,7 @@ router.beforeEach(async (to, from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
   
   // Simple token check without composables
   const getAuthTokenFromCookie = (): string | null => {
@@ -71,7 +90,13 @@ router.beforeEach(async (to, from, next) => {
     return null
   }
   
+  // Get user role from localStorage (set during login)
+  const getUserRole = (): string | null => {
+    return localStorage.getItem('user_role')
+  }
+  
   const hasToken = !!getAuthTokenFromCookie()
+  const userRole = getUserRole()
   
   if (requiresAuth && !hasToken) {
     // Redirect to login if not authenticated
@@ -81,6 +106,12 @@ router.beforeEach(async (to, from, next) => {
   
   if (requiresGuest && hasToken) {
     // Redirect to dashboard if already authenticated
+    next('/')
+    return
+  }
+  
+  if (requiresAdmin && userRole !== 'admin') {
+    // Redirect to dashboard if not admin
     next('/')
     return
   }

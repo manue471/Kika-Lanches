@@ -89,8 +89,8 @@ export class ProductsService {
   /**
    * Update product stock
    */
-  async updateStock(id: number, stock: number): Promise<Product> {
-    return await this.update(id, { stock })
+  async updateStock(id: number, stock_quantity: number): Promise<Product> {
+    return await this.update(id, { stock_quantity })
   }
 
   /**
@@ -107,7 +107,7 @@ export class ProductsService {
   async getLowStock(threshold: number = 5): Promise<Product[]> {
     const products = await this.getActive()
     return products.filter(product => 
-      product.stock !== undefined && product.stock <= threshold
+      product.stock_quantity !== undefined && product.stock_quantity <= threshold
     )
   }
 

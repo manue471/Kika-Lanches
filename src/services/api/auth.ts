@@ -16,6 +16,11 @@ export class AuthService {
     // Store auth data in cookie
     apiClient.setAuthToken(response.token)
     
+    // Store user role in localStorage for role-based access
+    if (response.user?.role) {
+      localStorage.setItem('user_role', response.user.role)
+    }
+    
     return response
   }
 
@@ -27,6 +32,11 @@ export class AuthService {
     
     // Store auth data in cookie
     apiClient.setAuthToken(response.token)
+    
+    // Store user role in localStorage for role-based access
+    if (response.user?.role) {
+      localStorage.setItem('user_role', response.user.role)
+    }
     
     return response
   }
@@ -43,6 +53,7 @@ export class AuthService {
     } finally {
       // Clear local auth data
       apiClient.clearAuthToken()
+      localStorage.removeItem('user_role')
     }
   }
 

@@ -1,5 +1,29 @@
 // API Types based on Swagger specification
 
+// Pagination types
+export interface PaginationLink {
+  url: string | null
+  label: string
+  page: number | null
+  active: boolean
+}
+
+export interface PaginatedResponse<T> {
+  current_page: number
+  data: T[]
+  first_page_url: string
+  from: number
+  last_page: number
+  last_page_url: string
+  links: PaginationLink[]
+  next_page_url: string | null
+  path: string
+  per_page: number
+  prev_page_url: string | null
+  to: number
+  total: number
+}
+
 export interface User {
   id: number
   name: string
@@ -7,8 +31,96 @@ export interface User {
   role: 'admin' | 'tenant_owner' | 'staff' | 'client'
   tenant_id: number
   is_active: boolean
+  phone?: string
   created_at?: string
   updated_at?: string
+}
+
+export interface CreateUserRequest {
+  name: string
+  email: string
+  password: string
+  role: 'admin' | 'tenant_owner' | 'staff' | 'client'
+  phone?: string
+  is_active?: boolean
+}
+
+export interface UpdateUserRequest {
+  name?: string
+  email?: string
+  password?: string
+  role?: 'admin' | 'tenant_owner' | 'staff' | 'client'
+  phone?: string
+  is_active?: boolean
+}
+
+// Customer Report Types
+export interface CustomerReportResponse {
+  customer: {
+    id: number
+    name: string
+    email: string
+    phone: string
+  }
+  summary: {
+    total_orders: number
+    total_spent: number
+    average_order_value: number
+    last_order_date: string
+  }
+  recent_orders: Array<{
+    id: number
+    order_number: string
+    status: Order['status']
+    total_amount: number
+    created_at: string
+    products: Array<{
+      id: number
+      name: string
+      quantity: number
+      price: number
+      total_price: number
+    }>
+  }>
+  filters: {
+    limit: number
+    status: string | null
+    from_date: string
+    to_date: string
+    period: string
+  }
+  period_info: {
+    applied_period: string
+    date_range: {
+      from: string
+      to: string
+    }
+    period_label: string
+  }
+}
+
+export type CustomerReportPeriod = 'last_week' | 'last_15_days' | 'last_month' | 'last_quarter'
+
+// Bulk Update Types
+export interface BulkUpdateRequest {
+  order_ids: number[]
+  status: 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'paid' | 'cancelled'
+  notes?: string
+}
+
+export interface BulkUpdateResponse {
+  message: string
+  updated_count: number
+  failed_count: number
+  updated_orders: Array<{
+    id: number
+    order_number: string
+    status: string
+  }>
+  failed_orders: Array<{
+    id: number
+    error: string
+  }>
 }
 
 export interface Category {
@@ -24,6 +136,17 @@ export interface Category {
   updated_at: string
 }
 
+export interface Stock {
+  id: number
+  product_id: number
+  quantity: number
+  reserved_quantity: number
+  min_stock_level: number
+  allow_backorder: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Product {
   id: number
   tenant_id: number
@@ -33,11 +156,14 @@ export interface Product {
   price: number
   sku?: string
   is_active: boolean
-  stock?: number
+  stock_quantity?: number
   image?: string
+  images?: string[]
+  attributes?: Record<string, any>
   created_at?: string
   updated_at?: string
   category?: Category
+  stock?: Stock
 }
 
 export interface Customer {
@@ -61,21 +187,51 @@ export interface OrderItem {
 
 export interface Order {
   id: number
+  tenant_id: number
+  user_id?: number
   order_number: string
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'paid' | 'cancelled'
   subtotal: number
   tax_amount?: number
   shipping_amount?: number
   total_amount: number
-  customer_id?: number
-  user_id: number
-  tenant_id: number
-  products: OrderItem[]
-  shipping_address?: Record<string, any>
+  customer_id: number
+  shipping_address?: {
+    street: string
+    city: string
+    state: string
+    zip_code: string
+    country: string
+  }
+  billing_address?: {
+    street: string
+    city: string
+    state: string
+    zip_code: string
+    country: string
+  } | null
   notes?: string
+  confirmed_at?: string | null
+  shipped_at?: string | null
+  delivered_at?: string | null
   created_at: string
   updated_at: string
   customer?: Customer
+  user?: User | null
+  order_products: OrderProduct[]
+}
+
+export interface OrderProduct {
+  id: number
+  order_id: number
+  product_id: number
+  quantity: number
+  unit_price: number
+  total_price: number
+  product_snapshot?: any
+  created_at: string
+  updated_at: string
+  product: Product
 }
 
 export interface Report {
@@ -156,6 +312,8 @@ export interface CategoryFilters {
 export interface ReportFilters {
   from: string
   to: string
+  status?: Order['status']
+  save_report?: boolean
   format?: 'json' | 'csv'
 }
 
@@ -189,7 +347,7 @@ export interface CreateProductRequest {
   sku?: string
   category_id?: number
   is_active?: boolean
-  stock?: number
+  stock_quantity?: number
   image?: string
 }
 
@@ -200,7 +358,7 @@ export interface UpdateProductRequest {
   sku?: string
   category_id?: number
   is_active?: boolean
-  stock?: number
+  stock_quantity?: number
   image?: string
 }
 
@@ -247,26 +405,63 @@ export interface MenuResponse {
 
 export interface SalesReportResponse {
   period: {
-    from: string
-    to: string
+    start_date: string
+    end_date: string
   }
   summary: {
+    total_sales: number
     total_orders: number
-    total_revenue: number
     average_order_value: number
   }
-  orders_by_status: Record<string, number>
+  orders_by_status: Record<Order['status'], {
+    count: number
+    total: number
+  }>
+  top_products: Array<{
+    id: number
+    name: string
+    total_quantity: number
+    total_revenue: number
+  }>
+}
+
+export interface DashboardResponse {
+  summary: {
+    total_sales: number
+    total_orders: number
+    average_order_value: number
+  }
+  today: {
+    revenue: number
+    sales_count: number
+    customers_served: number
+  }
+  this_month: {
+    revenue: number
+    sales_count: number
+    customers_served: number
+  }
   top_products: Array<{
     product_id: number
-    product_name: string
-    quantity_sold: number
-    revenue: number
+    name: string
+    sku: string
+    total_quantity: number
+    total_revenue: number
+  }>
+  orders_by_status: Record<Order['status'], {
+    count: number
+    total: number
   }>
   daily_sales: Array<{
     date: string
-    orders: number
     revenue: number
   }>
+  period: {
+    today: string
+    month_start: string
+    month_name: string
+    week_start: string
+  }
 }
 
 export interface FinancialReportResponse {

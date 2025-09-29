@@ -57,6 +57,7 @@
     <BaseLoading 
       v-if="isLoading" 
       message="Carregando produtos..."
+      :show="isLoading"
       variant="overlay"
     />
 
@@ -95,12 +96,11 @@
       <BaseCard
         v-else
         v-for="product in products"
-        v-if="product && product.id"
         :key="product.id"
         class="product-card"
         :class="{ 'inactive': !product.is_active }"
       >
-        <div class="product-header">
+        <div class="product-header" v-if="product && product.id">
           <div class="product-info">
             <h3 class="product-name">{{ product.name }}</h3>
             <p class="product-sku" v-if="product.sku">SKU: {{ product.sku }}</p>
@@ -141,13 +141,13 @@
             <span class="price-value">{{ formatCurrency(product.price) }}</span>
           </div>
           
-          <div class="product-stock" v-if="product.stock !== undefined">
+          <div class="product-stock" v-if="product.stock_quantity !== undefined">
             <span class="stock-label">Estoque:</span>
             <span 
               class="stock-value"
-              :class="{ 'low-stock': product.stock <= 5 }"
+              :class="{ 'low-stock': product.stock_quantity <= 5 }"
             >
-              {{ product.stock }} unidades
+              {{ product.stock_quantity }} unidades
             </span>
           </div>
         </div>

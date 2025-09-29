@@ -31,12 +31,7 @@
       </div>
 
       <div class="stats-grid">
-        <StatCard
-          title="Faturamento Hoje"
-          :value="todayRevenue"
-          format="currency"
-          icon="💰"
-        />
+        <!-- Cards para todos os usuários -->
         <StatCard
           title="Vendas Hoje"
           :value="todaySales"
@@ -49,19 +44,32 @@
           format="number"
           icon="👥"
         />
+        
+        <!-- Cards apenas para admins/proprietários -->
         <StatCard
+          v-if="isAdmin"
+          title="Faturamento Hoje"
+          :value="todayRevenue"
+          format="currency"
+          icon="💰"
+        />
+        <StatCard
+          v-if="isAdmin"
           title="Faturamento Mensal"
           :value="monthlyRevenue"
           format="currency"
-          icon="📅"
+          icon="📈"
         />
       </div>
 
       <div class="dashboard-grid">
-        <BaseCard title="Produtos Mais Vendidos" class="dashboard-card">
+        <BaseCard 
+          :title="isStaff ? 'Produtos em Destaque Hoje' : 'Produtos Mais Vendidos'" 
+          class="dashboard-card"
+        >
           <div class="top-products">
             <div v-if="topProducts.length === 0" class="no-data">
-              Nenhuma venda registrada
+              {{ isStaff ? 'Nenhum produto vendido hoje' : 'Nenhuma venda registrada' }}
             </div>
             <div
               v-for="(product, index) in topProducts"
@@ -72,34 +80,37 @@
                 <div class="rank-number">{{ index + 1 }}</div>
                 <div>
                   <div class="product-name">{{ product.name }}</div>
-                  <div class="product-sales">{{ product.quantity }} vendidos</div>
+                  <div class="product-sales">{{ product.quantity }} {{ isStaff ? 'vendidos hoje' : 'vendidos' }}</div>
                 </div>
               </div>
-              <div class="product-revenue">{{ formattedCurrency(product.revenue) }}</div>
+              <div v-if="isAdmin" class="product-revenue">{{ formattedCurrency(product.revenue) }}</div>
             </div>
           </div>
         </BaseCard>
 
-        <BaseCard title="Vendas por Período" class="dashboard-card">
-          <div class="period-selector">
-            <button
-              :class="['period-btn', { active: selectedPeriod === 'week' }]"
-              @click="selectedPeriod = 'week'"
-            >
-              Semana
-            </button>
-            <button
-              :class="['period-btn', { active: selectedPeriod === 'month' }]"
-              @click="selectedPeriod = 'month'"
-            >
-              Mês
-            </button>
-          </div>
-          <div class="chart-container">
-            <canvas ref="chartCanvas" width="400" height="200"></canvas>
-          </div>
-        </BaseCard>
       </div>
+
+      <BaseCard 
+        :title="isStaff ? 'Pedidos do Dia' : 'Pedidos por Status'" 
+        class="dashboard-card full-width"
+      >
+        <div class="status-grid">
+          <div v-if="ordersByStatus.length === 0" class="no-data">
+            {{ isStaff ? 'Nenhum pedido hoje' : 'Nenhum pedido registrado' }}
+          </div>
+          <div
+            v-for="statusData in ordersByStatus"
+            :key="statusData.status"
+            class="status-item"
+          >
+            <div class="status-info">
+              <div class="status-label">{{ getStatusLabel(statusData.status) }}</div>
+              <div class="status-count">{{ statusData.count }} {{ isStaff ? 'hoje' : 'pedidos' }}</div>
+            </div>
+            <div v-if="isAdmin" class="status-revenue">{{ formattedCurrency(statusData.total) }}</div>
+          </div>
+        </div>
+      </BaseCard>
 
       <BaseCard title="Ações Rápidas" class="quick-actions">
         <div class="action-buttons">
@@ -107,15 +118,15 @@
             <span class="action-icon">🛒</span>
             Nova Venda
           </button>
-          <button class="action-btn" @click="$emit('showModal', 'product')">
-            <span class="action-icon">➕</span>
-            Adicionar Produto
-          </button>
           <button class="action-btn" @click="$emit('showModal', 'customer')">
             <span class="action-icon">👤</span>
             Novo Cliente
           </button>
-          <button class="action-btn" @click="$emit('navigate', 'reports')">
+          <button v-if="isAdmin" class="action-btn" @click="$emit('showModal', 'product')">
+            <span class="action-icon">➕</span>
+            Adicionar Produto
+          </button>
+          <button v-if="isAdmin" class="action-btn" @click="$emit('navigate', 'reports')">
             <span class="action-icon">📈</span>
             Ver Relatórios
           </button>
@@ -126,13 +137,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useFormatter } from '@/composables/useUtils'
-import { useApi } from '@/composables/useApi'
-import { reportsService, productsService, customersService, ordersService } from '@/services/api'
+import { useDashboard } from '@/composables/useDashboard'
 import StatCard from '@/components/Business/StatCard.vue'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
+
+// Get user role from localStorage
+const getUserRole = (): string | null => {
+  return localStorage.getItem('user_role')
+}
+
+const userRole = getUserRole()
+const isStaff = computed(() => userRole === 'staff')
+const isAdmin = computed(() => userRole === 'admin' || userRole === 'tenant_owner')
 
 // Emits are used in template but not in script
 defineEmits<{
@@ -141,27 +160,11 @@ defineEmits<{
 }>()
 
 const { currency } = useFormatter()
-// const { startOfMonth } = useDateUtils() // Removido pois não está sendo usado
+const { dashboardData, error, isLoading, loadDashboard, refresh } = useDashboard()
 
-const selectedPeriod = ref<'week' | 'month'>('week')
-const chartCanvas = ref<HTMLCanvasElement>()
-
-// API data
-const salesReport = useApi(() => {
-  const today = new Date()
-  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-  return reportsService.getSalesReport({
-    from: weekAgo.toISOString().split('T')[0],
-    to: today.toISOString().split('T')[0]
-  })
-}, { autoLoad: true })
-
-const productsApi = useApi(() => productsService.getActive(), { autoLoad: true })
-const customersApi = useApi(() => customersService.getActive(), { autoLoad: true })
-const ordersApi = useApi(() => ordersService.getByDateRange(
-  new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  new Date().toISOString().split('T')[0]
-), { autoLoad: true })
+// Chart logic - commented for future use
+// const selectedPeriod = ref<'week' | 'month'>('week')
+// const chartCanvas = ref<HTMLCanvasElement>()
 
 const currentDate = computed(() => {
   const now = new Date()
@@ -174,61 +177,71 @@ const currentDate = computed(() => {
   return now.toLocaleDateString('pt-BR', options)
 })
 
-// Computed properties using real API data
+// Computed properties using dashboard API data
 const todaySales = computed(() => {
-  return salesReport.data.value?.summary?.total_orders || 0
+  return dashboardData.value?.today?.sales_count || 0
 })
 
 const todayRevenue = computed(() => {
-  return salesReport.data.value?.summary?.total_revenue || 0
+  return dashboardData.value?.today?.revenue || 0
 })
 
 const todayCustomers = computed(() => {
-  return customersApi.data.value?.length || 0
+  return dashboardData.value?.today?.customers_served || 0
 })
 
 const monthlyRevenue = computed(() => {
-  return salesReport.data.value?.summary?.total_revenue || 0
+  return dashboardData.value?.this_month?.revenue || 0
 })
 
 const topProducts = computed(() => {
-  const reportData = salesReport.data.value
-  if (!reportData?.top_products) return []
+  if (!dashboardData.value?.top_products) return []
   
-  return reportData.top_products.map((product: any) => ({
+  return dashboardData.value.top_products.map((product) => ({
     productId: product.product_id,
-    name: product.product_name,
-    quantity: product.quantity_sold,
-    revenue: product.revenue
+    name: product.name,
+    quantity: product.total_quantity,
+    revenue: product.total_revenue
   }))
 })
 
-const isLoading = computed(() => {
-  return salesReport.isLoading.value || 
-         productsApi.isLoading.value || 
-         customersApi.isLoading.value || 
-         ordersApi.isLoading.value
+const ordersByStatus = computed(() => {
+  if (!dashboardData.value?.orders_by_status) return []
+  
+  return Object.entries(dashboardData.value.orders_by_status).map(([status, data]) => ({
+    status,
+    count: data.count,
+    total: data.total
+  }))
 })
 
+
 const hasError = computed(() => {
-  return salesReport.error.value || 
-         productsApi.error.value || 
-         customersApi.error.value || 
-         ordersApi.error.value
+  return !!error.value
 })
 
 const formattedCurrency = currency
 
-// Methods
-const refreshData = async () => {
-  await Promise.all([
-    salesReport.refresh(),
-    productsApi.refresh(),
-    customersApi.refresh(),
-    ordersApi.refresh()
-  ])
+const getStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    pending: 'Pendente',
+    confirmed: 'Confirmado',
+    processing: 'Processando',
+    shipped: 'Enviado',
+    delivered: 'Entregue',
+    cancelled: 'Cancelado'
+  }
+  return labels[status] || status
 }
 
+// Methods
+const refreshData = async () => {
+  await refresh()
+  // updateChart() - commented for future use
+}
+
+// Chart functions - commented for future use
+/*
 const updateChart = async () => {
   if (!chartCanvas.value) return
 
@@ -255,12 +268,11 @@ const updateChart = async () => {
 }
 
 const getChartData = () => {
-  const reportData = salesReport.data.value
-  if (!reportData) return []
+  if (!dashboardData.value) return []
   
   if (selectedPeriod.value === 'week') {
-    // Use daily sales from API
-    return reportData.daily_sales?.map((day: any) => ({
+    // Use daily sales from dashboard API
+    return dashboardData.value.daily_sales?.map((day) => ({
       label: new Date(day.date).toLocaleDateString('pt-BR', { weekday: 'short' }),
       value: day.revenue
     })) || []
@@ -270,7 +282,9 @@ const getChartData = () => {
     return []
   }
 }
+*/
 
+/*
 const drawChart = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, data: { label: string; value: number }[]) => {
   const isMobile = window.innerWidth <= 768
   const padding = isMobile ? 20 : 40
@@ -345,11 +359,14 @@ const drawChart = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dat
     ctx.setLineDash([])
   }
 }
+*/
 
-onMounted(() => {
-  updateChart()
+onMounted(async () => {
+  await loadDashboard()
+  // updateChart() - commented for future use
   
-  // Add resize listener for responsive chart
+  // Add resize listener for responsive chart - commented for future use
+  /*
   const handleResize = () => {
     updateChart()
   }
@@ -360,30 +377,20 @@ onMounted(() => {
   onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
   })
+  */
 })
 
-watch(selectedPeriod, async () => {
-  // Reload sales report with new period
-  const today = new Date()
-  let fromDate: Date
-  
-  if (selectedPeriod.value === 'week') {
-    fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-  } else {
-    fromDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-  }
-  
-  await salesReport.execute(() => reportsService.getSalesReport({
-    from: fromDate.toISOString().split('T')[0],
-    to: today.toISOString().split('T')[0]
-  }))
-  
+// Chart watchers - commented for future use
+/*
+watch(selectedPeriod, () => {
+  // Update chart when period changes
   updateChart()
 })
 
-watch(() => salesReport.data.value, () => {
+watch(() => dashboardData.value, () => {
   updateChart()
 }, { deep: true })
+*/
 </script>
 
 <style lang="scss" scoped>
@@ -432,15 +439,20 @@ watch(() => salesReport.data.value, () => {
 .dashboard-card {
   height: 100%;
   min-height: 300px;
+  margin: 8px 0;
 }
 
+// Chart styles - commented for future use
+/*
 .period-selector {
   display: flex;
   gap: var(--spacing-2);
   margin-bottom: var(--spacing-4);
   flex-wrap: wrap;
 }
+*/
 
+/*
 .period-btn {
   background: var(--gray-200);
   border: none;
@@ -476,6 +488,7 @@ watch(() => salesReport.data.value, () => {
   overflow: hidden;
   position: relative;
 }
+*/
 
 .top-products {
   max-height: 250px;
@@ -844,6 +857,76 @@ watch(() => salesReport.data.value, () => {
 
   .chart-container {
     height: 150px;
+  }
+}
+
+// Status grid styles
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-3);
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-3);
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--gray-100);
+    transform: translateY(-1px);
+  }
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.status-label {
+  font-weight: 600;
+  color: var(--gray-800);
+  font-size: var(--font-size-sm);
+}
+
+.status-count {
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+}
+
+.status-revenue {
+  font-weight: 600;
+  color: var(--primary-dark);
+  font-size: var(--font-size-sm);
+}
+
+// Mobile optimizations for status grid
+@media (max-width: 768px) {
+  .status-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-2);
+  }
+
+  .status-item {
+    padding: var(--spacing-2);
+  }
+
+  .status-label {
+    font-size: var(--font-size-xs);
+  }
+
+  .status-count {
+    font-size: 0.7rem;
+  }
+
+  .status-revenue {
+    font-size: var(--font-size-xs);
   }
 }
 </style>

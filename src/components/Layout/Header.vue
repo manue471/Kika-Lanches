@@ -1,7 +1,9 @@
 <template>
   <header class="header">
     <div class="header-content">
-      <h1 class="logo">🍔 Kika Lanches</h1>
+      <h1 class="logo">
+        <img src="/icons/login-logo.png" alt="Kika Lanches" class="logo-img">
+        Kika Lanches</h1>
       
       <!-- Desktop Navigation -->
       <nav class="nav desktop-nav">
@@ -38,6 +40,7 @@
     
     <!-- Mobile Navigation Menu -->
     <div 
+      v-if="isMobileMenuOpen"
       class="mobile-menu" 
       :class="{ open: isMobileMenuOpen }"
       @click="closeMobileMenu"
@@ -106,12 +109,23 @@ initTheme()
 // Mobile menu state
 const isMobileMenuOpen = ref(false)
 
+// Get user role
+const getUserRole = (): string | null => {
+  return localStorage.getItem('user_role')
+}
+
+const userRole = getUserRole()
+
 const navigationItems: NavigationItem[] = [
   { name: 'Dashboard', route: 'dashboard' },
   { name: 'Vendas', route: 'sales' },
   { name: 'Produtos', route: 'products' },
+  { name: 'Categorias', route: 'categories' },
   { name: 'Clientes', route: 'customers' },
-  { name: 'Relatórios', route: 'reports' }
+  { name: 'Relatórios', route: 'reports' },
+  { name: 'Relatórios de Clientes', route: 'customer-reports' },
+  // Only show users menu for admins
+  ...(userRole === 'admin' ? [{ name: 'Usuários', route: 'users' }] : [])
 ]
 
 // Mobile menu methods
@@ -124,8 +138,12 @@ const closeMobileMenu = () => {
 }
 
 const navigateAndClose = (route: string) => {
-  emit('navigate', route)
-  closeMobileMenu()
+  try {
+    emit('navigate', route)
+    closeMobileMenu()
+  } catch (error) {
+    console.error('Error navigating:', error)
+  }
 }
 
 const getNavIcon = (route: string) => {
@@ -133,8 +151,10 @@ const getNavIcon = (route: string) => {
     dashboard: '📊',
     sales: '🛒',
     products: '📦',
+    categories: '📁',
     customers: '👥',
-    reports: '📈'
+    reports: '📈',
+    users: '👤'
   }
   return icons[route] || '📄'
 }
@@ -147,12 +167,20 @@ const handleKeydown = (event: KeyboardEvent) => {
 }
 
 const handleLogout = async () => {
-  await logout()
-  closeMobileMenu()
+  try {
+    await logout()
+    closeMobileMenu()
+  } catch (error) {
+    console.error('Error during logout:', error)
+  }
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
+  try {
+    document.addEventListener('keydown', handleKeydown)
+  } catch (error) {
+    console.error('Error adding event listener:', error)
+  }
 })
 
 onUnmounted(() => {
@@ -190,6 +218,9 @@ onUnmounted(() => {
   font-size: var(--font-size-2xl);
   font-weight: bold;
   color: var(--white);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
   margin: 0;
   flex-shrink: 0;
 }
@@ -362,6 +393,11 @@ onUnmounted(() => {
     font-size: var(--font-size-xl);
     font-weight: bold;
   }
+}
+
+.logo-img {
+  width: 40px;
+  height: 40px;
 }
 
 .close-btn {

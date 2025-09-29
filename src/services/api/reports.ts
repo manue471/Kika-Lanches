@@ -7,18 +7,53 @@ import type {
   SalesReportResponse,
   FinancialReportResponse,
   CustomersReportResponse,
-  ProductsReportResponse
+  ProductsReportResponse,
+  DashboardResponse,
+  CustomerReportResponse,
+  CustomerReportPeriod
 } from '@/types/api'
 
 export class ReportsService {
+  /**
+   * Get dashboard data
+   */
+  async getDashboard(): Promise<DashboardResponse> {
+    return await apiClient.get<DashboardResponse>('/reports/dashboard')
+  }
+
+  /**
+   * Get customer report
+   */
+  async getCustomerReport(
+    customerId: number, 
+    period?: CustomerReportPeriod,
+    status?: string,
+    limit?: number
+  ): Promise<CustomerReportResponse> {
+    const params = new URLSearchParams()
+    if (period) params.append('period', period)
+    if (status) params.append('status', status)
+    if (limit) params.append('limit', limit.toString())
+    
+    const queryString = params.toString()
+    const url = `/reports/customer/${customerId}${queryString ? `?${queryString}` : ''}`
+    
+    return await apiClient.get<CustomerReportResponse>(url)
+  }
+
   /**
    * Get sales report
    */
   async getSalesReport(filters: ReportFilters): Promise<SalesReportResponse> {
     const params = new URLSearchParams()
-    params.append('from', filters.from)
-    params.append('to', filters.to)
-    if (filters.format) params.append('format', filters.format)
+    
+    // Required parameters
+    if (filters.from) params.append('from', filters.from)
+    if (filters.to) params.append('to', filters.to)
+    
+    // Optional parameters
+    if (filters.status) params.append('status', filters.status)
+    if (filters.save_report !== undefined) params.append('save_report', filters.save_report.toString())
 
     return await apiClient.get<SalesReportResponse>(`/reports/sales?${params.toString()}`)
   }
