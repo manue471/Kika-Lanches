@@ -141,7 +141,7 @@ import BaseLoading from '@/components/Base/Loading.vue'
 import BaseModal from '@/components/Base/Modal.vue'
 import CustomerModal from '../components/Modals/CustomerModal.vue'
 import { useCustomers } from '@/composables/useCustomers'
-import { useNotifications } from '@/composables/useNotifications'
+// import { useNotifications } from '@/composables/useNotifications'
 import type { Customer } from '@/types/api'
 
 // Get user role from localStorage
@@ -150,7 +150,7 @@ const getUserRole = (): string | null => {
 }
 
 const userRole = getUserRole()
-const isStaff = computed(() => userRole === 'staff')
+// const isStaff = computed(() => userRole === 'staff')
 const isAdmin = computed(() => userRole === 'admin' || userRole === 'tenant_owner')
 
 // Composables
@@ -162,12 +162,12 @@ const {
   isUpdating,
   isDeleting,
   loadCustomers,
-  createCustomer,
+  // createCustomer,
   updateCustomer,
   deleteCustomer: deleteCustomerApi
 } = useCustomers()
 
-const notifications = useNotifications()
+// const notifications = useNotifications()
 
 // UI State
 const showCustomerModal = ref(false)

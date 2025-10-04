@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type NavigationGuardNext } from 'vue-router'
 import Dashboard from '@/pages/Dashboard.vue'
 import Login from '@/pages/Login.vue'
 import Register from '@/pages/Register.vue'
@@ -72,7 +72,7 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next: NavigationGuardNext) => {
   // Check if route requires authentication
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest)

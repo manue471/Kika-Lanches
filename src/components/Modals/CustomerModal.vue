@@ -307,8 +307,8 @@ const handleSubmit = async () => {
     }
 
     input[type="checkbox"]:checked + .checkmark {
-      background: var(--primary-medium);
-      border-color: var(--primary-medium);
+      background: var(--primary);
+      border-color: var(--primary);
 
       &::after {
         opacity: 1;

@@ -42,6 +42,7 @@
     <!-- Loading State -->
     <BaseLoading 
       v-if="isLoading" 
+      :show="isLoading"
       message="Carregando produtos..."
       variant="overlay"
     />
@@ -158,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useProducts } from '@/composables/useProducts'
 import { useFormatter } from '@/composables/useUtils'
 import BaseCard from '@/components/Base/Card.vue'
@@ -180,7 +181,7 @@ const {
   // Loading states
   isLoading,
   isCreating,
-  isUpdating,
+  // isUpdating,
   isDeleting,
   isToggling,
   
@@ -191,8 +192,8 @@ const {
   searchProducts,
   filterByCategory,
   toggleActiveFilter,
-  createProduct,
-  updateProduct,
+  // createProduct,
+  // updateProduct,
   deleteProduct,
   toggleActive,
   refresh
@@ -225,7 +226,7 @@ const editProduct = (product: Product) => {
   showProductModal.value = true
 }
 
-const handleProductSuccess = (product: Product) => {
+const handleProductSuccess = () => {
   showProductModal.value = false
   selectedProduct.value = null
 }
@@ -234,11 +235,11 @@ const toggleProductActive = async (id: number) => {
   await toggleActive(id)
 }
 
-const deleteProductConfirm = async (id: number) => {
-  if (confirm('Tem certeza que deseja excluir este produto?')) {
-    await deleteProduct(id)
-  }
-}
+// const deleteProductConfirm = async (id: number) => {
+//   if (confirm('Tem certeza que deseja excluir este produto?')) {
+//     await deleteProduct(id)
+//   }
+// }
 </script>
 
 <style lang="scss" scoped>

@@ -117,7 +117,7 @@ const handleClick = () => {
 }
 
 .product-card-price {
-  color: var(--primary-medium);
+  color: var(--primary);
   font-weight: bold;
   font-size: var(--font-size-lg);
   margin-bottom: var(--spacing-2);

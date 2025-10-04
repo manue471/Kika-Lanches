@@ -28,6 +28,18 @@
           placeholder="Todos os status"
           @change="handleStatusFilter"
         />
+        <BaseSelect
+          v-model="paymentMethodFilter"
+          :options="paymentMethodOptions"
+          placeholder="Todos os métodos de pagamento"
+          @change="handlePaymentMethodFilter"
+        />
+        <BaseSelect
+          v-model="timeRangeFilter"
+          :options="timeRangeOptions"
+          placeholder="Todos os horários"
+          @change="handleTimeRangeFilter"
+        />
         <div class="date-filters">
           <BaseInput
             v-model="startDate"
@@ -122,9 +134,15 @@
           </div>
 
           <div class="order-footer">
-            <div class="order-total">
-              <span class="total-label">Total:</span>
-              <span class="total-value">{{ formatCurrency(order.total_amount) }}</span>
+            <div class="order-summary">
+              <div class="order-total">
+                <span class="total-label">Total:</span>
+                <span class="total-value">{{ formatCurrency(order.total_amount) }}</span>
+              </div>
+              <div class="payment-method">
+                <span class="payment-icon">{{ getPaymentIcon(order.payment_method) }}</span>
+                <span class="payment-label">{{ getPaymentLabel(order.payment_method) }}</span>
+              </div>
             </div>
             <div class="order-actions">
               <BaseButton
@@ -155,17 +173,6 @@
       </div>
     </div>
 
-    <!-- Empty State -->
-    <BaseCard v-if="!isLoading && orders.length === 0" class="empty-state">
-      <div class="empty-content">
-        <span class="empty-icon">🛒</span>
-        <h3>Nenhuma venda encontrada</h3>
-        <p>Comece criando sua primeira venda!</p>
-        <BaseButton variant="primary" @click="showOrderModal = true">
-          Nova Venda
-        </BaseButton>
-      </div>
-    </BaseCard>
 
     <!-- Order Modal -->
     <OrderModal
@@ -177,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useOrders } from '@/composables/useOrders'
 import { useFormatter } from '@/composables/useUtils'
 import BaseCard from '@/components/Base/Card.vue'
@@ -194,8 +201,11 @@ const {
   orders,
   searchTerm,
   statusFilter,
+  paymentMethodFilter,
   startDate,
   endDate,
+  timeRangeFilter,
+  timePeriods,
   
   // Loading states
   isLoading,
@@ -207,7 +217,10 @@ const {
   // Methods
   searchOrders,
   filterByStatus,
+  filterByPaymentMethod,
   filterByDateRange,
+  filterByTimeRange,
+  loadTimePeriods,
   cancelOrder,
   refresh
 } = useOrders()
@@ -234,6 +247,49 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelado' }
 ]
 
+const paymentMethodOptions = [
+  { value: '', label: 'Todos os métodos de pagamento' },
+  { value: 'cartao_credito', label: '💳 Cartão de Crédito' },
+  { value: 'pix', label: '🔑 PIX' },
+  { value: 'dinheiro', label: '💵 Dinheiro' },
+  { value: 'a_prazo', label: '📋 À Prazo' }
+]
+
+// Time range options computed from API
+const timeRangeOptions = computed(() => {
+  const options = [{ value: '', label: 'Todos os horários' }]
+  
+  Object.entries(timePeriods.value).forEach(([, period]) => {
+    options.push({
+      value: period.time_range,
+      label: `${period.label} (${period.time_range})`
+    })
+  })
+  
+  return options
+})
+
+// Payment method helpers
+const getPaymentIcon = (paymentMethod: string) => {
+  const icons: Record<string, string> = {
+    cartao_credito: '💳',
+    pix: '🔑',
+    dinheiro: '💵',
+    a_prazo: '📋'
+  }
+  return icons[paymentMethod] || '💰'
+}
+
+const getPaymentLabel = (paymentMethod: string) => {
+  const labels: Record<string, string> = {
+    cartao_credito: 'Cartão de Crédito',
+    pix: 'PIX',
+    dinheiro: 'Dinheiro',
+    a_prazo: 'À Prazo'
+  }
+  return labels[paymentMethod] || paymentMethod
+}
+
 // Methods
 const handleSearch = () => {
   searchOrders(searchTerm.value)
@@ -249,6 +305,14 @@ const handleDateFilter = () => {
   }
 }
 
+const handlePaymentMethodFilter = () => {
+  filterByPaymentMethod(paymentMethodFilter.value)
+}
+
+const handleTimeRangeFilter = () => {
+  filterByTimeRange(timeRangeFilter.value)
+}
+
 
 const viewOrder = (order: Order) => {
   selectedOrderId.value = order.id
@@ -262,9 +326,10 @@ const editOrder = async (order: Order) => {
   console.log('Modal should show:', showOrderModal.value)
 }
 
-const handleOrderSuccess = () => {
+const handleOrderSuccess = async () => {
   showOrderModal.value = false
   selectedOrderId.value = null
+  await refresh()
 }
 
 const cancelOrderConfirm = async (id: number) => {
@@ -272,6 +337,11 @@ const cancelOrderConfirm = async (id: number) => {
     await cancelOrder(id)
   }
 }
+
+// Initialize time periods on mount
+onMounted(async () => {
+  await loadTimePeriods()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -363,7 +433,7 @@ const cancelOrderConfirm = async (id: number) => {
   }
   
   &.status-processing {
-    border-left: 4px solid var(--primary-medium);
+    border-left: 4px solid var(--primary);
   }
   
   &.status-shipped {
@@ -448,6 +518,16 @@ const cancelOrderConfirm = async (id: number) => {
   align-items: center;
   padding-top: var(--spacing-3);
   border-top: 1px solid var(--gray-200);
+  gap: var(--spacing-4);
+  flex-wrap: wrap;
+}
+
+.order-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  flex: 1;
+  min-width: 200px;
 }
 
 .order-total {
@@ -467,9 +547,29 @@ const cancelOrderConfirm = async (id: number) => {
   }
 }
 
+.payment-method {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  
+  .payment-icon {
+    font-size: var(--font-size-lg);
+  }
+  
+  .payment-label {
+    font-size: var(--font-size-sm);
+    color: var(--gray-700);
+    font-weight: 500;
+  }
+}
+
 .order-actions {
   display: flex;
   gap: var(--spacing-2);
+  flex-wrap: wrap;
 }
 
 .empty-state {

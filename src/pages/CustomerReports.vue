@@ -40,6 +40,15 @@
           />
         </div>
         
+        <div class="filter-group">
+          <label class="filter-label">Método de Pagamento</label>
+          <BaseSelect
+            v-model="selectedPaymentMethod"
+            :options="paymentMethodOptions"
+            placeholder="Todos os métodos"
+          />
+        </div>
+        
         <BaseButton 
           @click="applyFilters"
           variant="primary"
@@ -126,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useCustomers } from '@/composables/useCustomers'
 import { useCustomerReports } from '@/composables/useCustomerReports'
 import BaseCard from '@/components/Base/Card.vue'
@@ -144,8 +153,10 @@ const {
   selectedPeriod, 
   selectedStatus, 
   selectedLimit,
+  selectedPaymentMethod,
   periodOptions,
   statusOptions,
+  paymentMethodOptions,
   getCustomerReport,
   isLoading: isLoadingReport,
   error: reportError

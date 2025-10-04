@@ -25,7 +25,7 @@ export function useReports() {
       loading.setLoading(true)
       error.value = null
       const response = await reportsService.list()
-      reports.value = response
+      reports.value = Array.isArray(response) ? response : response.data || []
     } catch (err) {
       error.value = 'Erro ao carregar relatórios'
       notifications.error('Erro ao carregar relatórios')
@@ -38,7 +38,7 @@ export function useReports() {
     try {
       loading.setLoading(true)
       console.log('Fetching sales report with filters:', filters)
-      const response = await reportsService.getSalesReport(filters)
+      const response = await reportsService.getSalesReport(filters || { from: new Date().toISOString(), to: new Date().toISOString() })
       salesReport.value = response
       console.log('Sales report response:', response)
       return response
@@ -93,13 +93,10 @@ export function useReports() {
     }
   }
   
-  const saveReport = async (data: any) => {
+  const saveReport = async () => {
     try {
       loading.setLoading(true)
-      const response = await reportsService.save(data)
-      reports.value.push(response)
-      notifications.success('Relatório salvo com sucesso!')
-      return response
+      throw new Error('Save method not implemented')
     } catch (err) {
       notifications.error('Erro ao salvar relatório')
       throw err

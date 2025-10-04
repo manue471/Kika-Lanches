@@ -130,7 +130,7 @@ const getUserRole = (): string | null => {
 }
 
 const userRole = getUserRole()
-const isStaff = computed(() => userRole === 'staff')
+// const isStaff = computed(() => userRole === 'staff')
 const isAdmin = computed(() => userRole === 'admin' || userRole === 'tenant_owner')
 
 // Composables
@@ -142,7 +142,7 @@ const {
   isUpdating,
   isDeleting,
   loadCategories,
-  createCategory,
+  // createCategory,
   updateCategory,
   deleteCategory
 } = useCategories()
@@ -174,15 +174,15 @@ const toggleCategoryActive = async (id: number) => {
   }
 }
 
-const deleteCategoryConfirm = async (id: number) => {
-  if (confirm('Tem certeza que deseja excluir esta categoria?')) {
-    try {
-      await deleteCategory(id)
-    } catch (error) {
-      // Error is handled by the composable
-    }
-  }
-}
+// const deleteCategoryConfirm = async (id: number) => {
+//   if (confirm('Tem certeza que deseja excluir esta categoria?')) {
+//     try {
+//       await deleteCategory(id)
+//     } catch (error) {
+//       // Error is handled by the composable
+//     }
+//   }
+// }
 </script>
 
 <style lang="scss" scoped>

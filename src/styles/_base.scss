@@ -61,9 +61,10 @@ textarea:focus {
 // High Contrast Mode Support
 @media (prefers-contrast: high) {
   :root {
-    --primary-dark: #000000;
-    --primary-medium: #0066cc;
-    --primary-light: #0080ff;
+    --primary: #141d85;
+    --primary-dark: #0f1559;
+    --primary-light: #4a5bb8;
+    --primary-lighter: #7a8bc7;
     --gray-300: #666666;
     --gray-600: #333333;
   }

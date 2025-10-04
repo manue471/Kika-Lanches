@@ -31,7 +31,7 @@ const props = withDefaults(defineProps<Props>(), {
   block: false
 })
 
-const emit = defineEmits<{
+defineEmits<{
   click: [event: MouseEvent]
 }>()
 
@@ -74,7 +74,7 @@ const buttonClasses = computed(() => {
 
 // Variants
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-medium) 0%, var(--primary-light) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   color: var(--white);
 
   &:hover:not(:disabled) {
@@ -85,11 +85,11 @@ const buttonClasses = computed(() => {
 
 .btn-secondary {
   background: var(--white);
-  color: var(--primary-medium);
-  border: 1px solid var(--primary-medium);
+  color: var(--primary);
+  border: 1px solid var(--primary);
 
   &:hover:not(:disabled) {
-    background: var(--primary-medium);
+    background: var(--primary);
     color: var(--white);
   }
 }

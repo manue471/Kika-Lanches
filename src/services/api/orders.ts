@@ -12,8 +12,41 @@ export class OrdersService {
   /**
    * List orders
    */
-  async list(): Promise<PaginatedResponse<Order>> {
-    return await apiClient.get<PaginatedResponse<Order>>('/orders')
+  async list(params?: { 
+    payment_method?: string
+    status?: string
+    date_from?: string
+    date_to?: string
+    time_range?: string
+  }): Promise<PaginatedResponse<Order>> {
+    const queryParams = new URLSearchParams()
+    if (params?.payment_method) {
+      queryParams.append('payment_method', params.payment_method)
+    }
+    if (params?.status) {
+      queryParams.append('status', params.status)
+    }
+    if (params?.date_from) {
+      queryParams.append('date_from', params.date_from)
+    }
+    if (params?.date_to) {
+      queryParams.append('date_to', params.date_to)
+    }
+    if (params?.time_range) {
+      queryParams.append('time_range', params.time_range)
+    }
+    
+    const queryString = queryParams.toString()
+    const url = queryString ? `/orders?${queryString}` : '/orders'
+    
+    return await apiClient.get<PaginatedResponse<Order>>(url)
+  }
+
+  /**
+   * Get time periods for filtering
+   */
+  async getTimePeriods(): Promise<{ time_periods: Record<string, { label: string; time_range: string; description: string }> }> {
+    return await apiClient.get<{ time_periods: Record<string, { label: string; time_range: string; description: string }> }>('/orders/time-periods')
   }
 
   /**

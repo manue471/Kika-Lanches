@@ -520,7 +520,7 @@ onMounted(() => {
   .product-rank {
     width: 32px;
     height: 32px;
-    background: var(--primary-medium);
+    background: var(--primary);
     color: var(--white);
     border-radius: 50%;
     display: flex;

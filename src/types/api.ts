@@ -1,5 +1,15 @@
 // API Types based on Swagger specification
 
+// Payment method options
+export const PAYMENT_METHODS = {
+  cartao_credito: 'Cartão de Crédito',
+  pix: 'PIX',
+  dinheiro: 'Dinheiro',
+  a_prazo: 'À Prazo'
+} as const
+
+export type PaymentMethod = keyof typeof PAYMENT_METHODS
+
 // Pagination types
 export interface PaginationLink {
   url: string | null
@@ -72,6 +82,7 @@ export interface CustomerReportResponse {
     id: number
     order_number: string
     status: Order['status']
+    payment_method: Order['payment_method']
     total_amount: number
     created_at: string
     products: Array<{
@@ -196,6 +207,7 @@ export interface Order {
   shipping_amount?: number
   total_amount: number
   customer_id: number
+  payment_method: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
   shipping_address?: {
     street: string
     city: string
@@ -381,6 +393,18 @@ export interface UpdateCustomerRequest {
 export interface CreateOrderRequest {
   customer_id?: number
   products: OrderItem[]
+  payment_method: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
+  shipping_address?: Record<string, any>
+  tax_amount?: number
+  shipping_amount?: number
+  notes?: string
+}
+
+export interface UpdateOrderRequest {
+  customer_id?: number
+  products?: OrderItem[]
+  payment_method?: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
+  status?: Order['status']
   shipping_address?: Record<string, any>
   tax_amount?: number
   shipping_amount?: number

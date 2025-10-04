@@ -14,6 +14,7 @@ export function useCustomerReports() {
   const selectedPeriod = ref<CustomerReportPeriod>('last_month')
   const selectedStatus = ref<string>('')
   const selectedLimit = ref<number>(10)
+  const selectedPaymentMethod = ref<string>('')
   
   // Computed
   const isLoading = computed(() => loading.isLoading.value)
@@ -37,6 +38,15 @@ export function useCustomerReports() {
     { value: 'cancelled', label: 'Cancelado' }
   ]
   
+  // Payment method options
+  const paymentMethodOptions = [
+    { value: '', label: 'Todos os Métodos' },
+    { value: 'cartao_credito', label: '💳 Cartão de Crédito' },
+    { value: 'pix', label: '🔑 PIX' },
+    { value: 'dinheiro', label: '💵 Dinheiro' },
+    { value: 'a_prazo', label: '📋 À Prazo' }
+  ]
+  
   // Methods
   const getCustomerReport = async (customerId: number) => {
     try {
@@ -47,7 +57,8 @@ export function useCustomerReports() {
         customerId,
         selectedPeriod.value,
         selectedStatus.value || undefined,
-        selectedLimit.value
+        selectedLimit.value,
+        selectedPaymentMethod.value || undefined
       )
       
       customerReport.value = response
@@ -79,6 +90,7 @@ export function useCustomerReports() {
     selectedPeriod,
     selectedStatus,
     selectedLimit,
+    selectedPaymentMethod,
     
     // Computed
     isLoading,
@@ -86,6 +98,7 @@ export function useCustomerReports() {
     // Options
     periodOptions,
     statusOptions,
+    paymentMethodOptions,
     
     // Methods
     getCustomerReport,

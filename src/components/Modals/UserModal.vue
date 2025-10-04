@@ -132,7 +132,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useUsers } from '../../composables/useUsers'
-import { useNotifications } from '@/composables/useNotifications'
+// import { useNotifications } from '@/composables/useNotifications'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
@@ -152,7 +152,7 @@ const emit = defineEmits<{
 }>()
 
 const { createUser, updateUser, isCreating, isUpdating } = useUsers()
-const { showNotification } = useNotifications()
+// const { showNotification } = useNotifications()
 
 // Debug logs
 console.log('UserModal mounted, props:', props)

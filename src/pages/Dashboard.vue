@@ -545,7 +545,7 @@ watch(() => dashboardData.value, () => {
 }
 
 .rank-number {
-  background: var(--primary-medium);
+  background: var(--primary);
   color: var(--white);
   width: 28px;
   height: 28px;
@@ -581,6 +581,7 @@ watch(() => dashboardData.value, () => {
 }
 
 .quick-actions {
+  margin-top: var(--spacing-4);
   .action-buttons {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -588,7 +589,7 @@ watch(() => dashboardData.value, () => {
   }
 
   .action-btn {
-    background: linear-gradient(135deg, var(--primary-medium) 0%, var(--primary-light) 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     border: none;
     padding: var(--spacing-4) var(--spacing-5);
     border-radius: var(--radius-lg);

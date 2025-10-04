@@ -46,7 +46,7 @@
                 :min="1"
                 :max="getMaxQuantity(item.product_id)"
                 placeholder="Qtd"
-                @input="calculateItemTotal(index)"
+                @input="calculateItemTotal()"
                 :error="getStockError(item.product_id, item.quantity)"
               />
               <div v-if="getStockInfo(item.product_id)" class="stock-info">
@@ -56,9 +56,6 @@
                   :class="getStockClass(item.product_id)"
                 >
                   {{ getStockInfo(item.product_id)?.quantity || 0 }}
-                </span>
-                <span v-if="getStockInfo(item.product_id)?.allow_backorder" class="backorder-info">
-                  (backorder)
                 </span>
               </div>
             </div>
@@ -102,24 +99,14 @@
           </div>
           
           <div class="form-group">
-            <label for="shipping_amount" class="form-label">Taxa de Entrega</label>
-            <BaseInput
-              id="shipping_amount"
-              v-model.number="form.shipping_amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="tax_amount" class="form-label">Taxa de Serviço</label>
-            <BaseInput
-              id="tax_amount"
-              v-model.number="form.tax_amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
+            <label for="payment_method" class="form-label">Método de Pagamento</label>
+            <BaseSelect
+              id="payment_method"
+              v-model="form.payment_method"
+              :options="paymentMethodOptions"
+              placeholder="Selecione o método de pagamento"
+              :error="errors.payment_method"
+              required
             />
           </div>
         </div>
@@ -222,7 +209,7 @@ import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import ConfirmModal from '@/components/Base/ConfirmModal.vue'
-import type { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem } from '@/types/api'
+import type { Order } from '@/types/api'
 
 interface Props {
   show: boolean
@@ -249,6 +236,7 @@ const form = ref({
     { product_id: 0, quantity: 1 }
   ],
   status: 'pending' as Order['status'],
+  payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
   shipping_amount: 0,
   tax_amount: 0,
   notes: ''
@@ -297,6 +285,13 @@ const statusOptions = [
   { value: 'shipped', label: 'Enviado' },
   { value: 'delivered', label: 'Entregue' },
   { value: 'cancelled', label: 'Cancelado' }
+]
+
+const paymentMethodOptions = [
+  { value: 'cartao_credito', label: 'Cartão de Crédito' },
+  { value: 'pix', label: 'PIX' },
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'a_prazo', label: 'À Prazo' }
 ]
 
 // Stock validation methods
@@ -398,6 +393,7 @@ const resetForm = () => {
       { product_id: 0, quantity: 1 }
     ],
     status: 'pending' as Order['status'],
+    payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
     shipping_amount: 0,
     tax_amount: 0,
     notes: ''
@@ -425,6 +421,7 @@ watch(() => props.orderId, async (orderId) => {
           quantity: item.quantity
         })) || [{ product_id: 0, quantity: 1 }],
         status: order.status,
+        payment_method: order.payment_method,
         shipping_amount: order.shipping_amount || 0,
         tax_amount: order.tax_amount || 0,
         notes: order.notes || ''
@@ -478,7 +475,7 @@ const updateProductPrice = (index: number) => {
     // Check stock availability
     const stock = product.stock
     if (stock) {
-      const requestedQuantity = form.value.products[index].quantity || 1
+      // const requestedQuantity = form.value.products[index].quantity || 1
       
       // If no stock and backorder not allowed, show warning
       if (stock.quantity === 0 && !stock.allow_backorder) {
@@ -500,7 +497,7 @@ const updateProductPrice = (index: number) => {
   }
 }
 
-const calculateItemTotal = (index: number) => {
+const calculateItemTotal = () => {
   // No need to force reactivity - Vue will handle it automatically
   // The computed properties will update when the data changes
 }
@@ -547,6 +544,10 @@ const validateForm = (): boolean => {
 
   if (!form.value.customer_id) {
     errors.value.customer_id = 'Cliente é obrigatório'
+  }
+
+  if (!form.value.payment_method) {
+    errors.value.payment_method = 'Método de pagamento é obrigatório'
   }
 
   if (form.value.products.length === 0) {
@@ -600,6 +601,7 @@ const prepareUpdateData = () => {
   const updateData: any = {
     customer_id: form.value.customer_id,
     products: form.value.products,
+    payment_method: form.value.payment_method,
     shipping_amount: form.value.shipping_amount,
     tax_amount: form.value.tax_amount,
     notes: form.value.notes
@@ -723,7 +725,7 @@ const handleStockCancel = () => {
     grid-template-columns: 1fr auto auto auto;
     gap: var(--spacing-3);
     align-items: start;
-    padding: var(--spacing-3);
+    padding: var(--spacing-2);
     background: var(--gray-50);
     border-radius: var(--radius-md);
   }

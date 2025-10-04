@@ -116,6 +116,10 @@
                   <span class="order-number">{{ order.order_number }}</span>
                   <span class="order-date">{{ formatDate(order.created_at) }}</span>
                 </div>
+                <div class="order-payment">
+                  <span class="payment-icon">{{ getPaymentIcon(order.payment_method) }}</span>
+                  <span class="payment-label">{{ getPaymentLabel(order.payment_method) }}</span>
+                </div>
                 <div class="order-status">
                   <StatusBadge :status="order.status" />
                 </div>
@@ -131,10 +135,7 @@
                   :key="product.id"
                   class="product-item"
                 >
-                  <span class="product-name">{{ product.name }}</span>
-                  <span class="product-quantity">Qtd: {{ product.quantity }}</span>
-                  <span class="product-price">{{ formatCurrency(product.price) }}</span>
-                  <span class="product-total">{{ formatCurrency(product.total_price) }}</span>
+                  <span class="product-name">{{ product.name }} - Qtd: {{ product.quantity }} - {{ formatCurrency(product.price) }}</span>
                 </div>
               </div>
             </div>
@@ -228,6 +229,10 @@
                         <span class="order-number">{{ order.order_number }}</span>
                         <span class="order-date">{{ formatDate(order.created_at) }}</span>
                       </div>
+                      <div class="order-payment">
+                        <span class="payment-icon">{{ getPaymentIcon(order.payment_method) }}</span>
+                        <span class="payment-label">{{ getPaymentLabel(order.payment_method) }}</span>
+                      </div>
                       <div class="order-status">
                         <StatusBadge :status="order.status" />
                       </div>
@@ -237,17 +242,15 @@
                     </div>
                     
                     <!-- Order Products -->
-                    <div class="order-products">
-                      <div 
-                        v-for="product in order.products" 
-                        :key="product.id"
-                        class="product-item"
-                      >
-                        <span class="product-name">{{ product.name }}</span>
-                        <span class="product-quantity">Qtd: {{ product.quantity }}</span>
-                        <span class="product-total">{{ formatCurrency(product.total_price) }}</span>
+                      <div class="order-products">
+                        <div 
+                          v-for="product in order.products" 
+                          :key="product.id"
+                          class="product-item"
+                        >
+                          <span class="product-name">{{ product.name }} - Qtd: {{ product.quantity }} - {{ formatCurrency(product.price) }}</span>
+                        </div>
                       </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -332,6 +335,27 @@ watch([selectedOrders, () => props.customerReport?.recent_orders], async () => {
 
 const formatCurrency = (value: number) => currency(value)
 const formatDate = (dateValue: string | Date) => date(dateValue)
+
+// Payment method helpers
+const getPaymentIcon = (paymentMethod: string) => {
+  const icons: Record<string, string> = {
+    cartao_credito: '💳',
+    pix: '🔑',
+    dinheiro: '💵',
+    a_prazo: '📋'
+  }
+  return icons[paymentMethod] || '💰'
+}
+
+const getPaymentLabel = (paymentMethod: string) => {
+  const labels: Record<string, string> = {
+    cartao_credito: 'Cartão de Crédito',
+    pix: 'PIX',
+    dinheiro: 'Dinheiro',
+    a_prazo: 'À Prazo'
+  }
+  return labels[paymentMethod] || paymentMethod
+}
 
 // Mark as paid method
 const markAsPaid = async () => {
@@ -440,7 +464,7 @@ const markAsPaid = async () => {
 }
 
 .receipt-header {
-  background: var(--primary);
+  background: var(--gray-50);
   color: black;
   padding: var(--spacing-6);
   display: flex;
@@ -607,6 +631,26 @@ const markAsPaid = async () => {
         }
       }
       
+      .order-payment {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-2);
+        padding: var(--spacing-2) var(--spacing-3);
+        background: var(--gray-50);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--gray-200);
+        
+        .payment-icon {
+          font-size: var(--font-size-lg);
+        }
+        
+        .payment-label {
+          font-size: var(--font-size-sm);
+          color: var(--gray-700);
+          font-weight: 500;
+        }
+      }
+      
       .order-total {
         font-weight: 700;
         font-size: var(--font-size-lg);
@@ -619,9 +663,6 @@ const markAsPaid = async () => {
       background: white;
       
       .product-item {
-        display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr;
-        gap: var(--spacing-2);
         padding: var(--spacing-2) 0;
         border-bottom: 1px solid var(--gray-200);
         
@@ -632,20 +673,7 @@ const markAsPaid = async () => {
         .product-name {
           font-weight: 600;
           color: var(--gray-900);
-        }
-        
-        .product-quantity,
-        .product-price,
-        .product-total {
           font-size: var(--font-size-sm);
-          color: var(--gray-700);
-          text-align: right;
-          font-weight: 500;
-        }
-        
-        .product-total {
-          font-weight: 700;
-          color: var(--gray-900);
         }
       }
     }
@@ -828,7 +856,6 @@ const markAsPaid = async () => {
   
   &.selected {
     border-color: var(--primary);
-    background: var(--primary-light);
   }
 }
 
@@ -905,6 +932,26 @@ const markAsPaid = async () => {
       }
     }
     
+    .order-payment {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-2);
+      padding: var(--spacing-2) var(--spacing-3);
+      background: var(--gray-50);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--gray-200);
+      
+      .payment-icon {
+        font-size: var(--font-size-lg);
+      }
+      
+      .payment-label {
+        font-size: var(--font-size-sm);
+        color: var(--gray-700);
+        font-weight: 500;
+      }
+    }
+    
     .order-total {
       font-weight: 700;
       font-size: var(--font-size-lg);
@@ -912,37 +959,22 @@ const markAsPaid = async () => {
     }
   }
   
-  .order-products {
-    .product-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--spacing-2) 0;
-      border-bottom: 1px solid var(--gray-100);
-      
-      &:last-child {
-        border-bottom: none;
-      }
-      
-      .product-name {
-        font-weight: 500;
-        color: var(--gray-800);
-        flex: 1;
-      }
-      
-      .product-quantity {
-        font-size: var(--font-size-sm);
-        color: var(--gray-600);
-        margin: 0 var(--spacing-3);
-      }
-      
-      .product-total {
-        font-weight: 600;
-        color: var(--gray-900);
-        font-size: var(--font-size-sm);
-      }
-    }
-  }
+          .order-products {
+            .product-item {
+              padding: var(--spacing-2) 0;
+              border-bottom: 1px solid var(--gray-100);
+              
+              &:last-child {
+                border-bottom: none;
+              }
+              
+              .product-name {
+                font-weight: 500;
+                color: var(--gray-800);
+                font-size: var(--font-size-sm);
+              }
+            }
+          }
 }
 
 // Mobile optimizations

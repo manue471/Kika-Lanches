@@ -13,8 +13,6 @@
         <BaseInput
           v-model="form.description"
           label="Descrição"
-          type="textarea"
-          :rows="3"
           placeholder="Descreva a categoria..."
           :error="errors.description"
         />

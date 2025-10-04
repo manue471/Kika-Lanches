@@ -55,7 +55,7 @@ const props = withDefaults(defineProps<Props>(), {
   required: false
 })
 
-const emit = defineEmits<{
+defineEmits<{
   'update:modelValue': [value: string | number]
 }>()
 

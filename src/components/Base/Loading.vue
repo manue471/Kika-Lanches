@@ -84,7 +84,7 @@ const spinnerClass = computed(() => {
   width: 40px;
   height: 40px;
   border: 3px solid var(--gray-300);
-  border-top: 3px solid var(--primary-medium);
+  border-top: 3px solid var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -108,7 +108,7 @@ const spinnerClass = computed(() => {
 }
 
 .spinner-primary .spinner {
-  border-top-color: var(--primary-medium);
+  border-top-color: var(--primary);
 }
 
 .spinner-secondary .spinner {

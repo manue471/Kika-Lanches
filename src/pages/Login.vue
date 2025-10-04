@@ -5,11 +5,11 @@
     
 
     <!-- Logo -->
+    
+    <!-- Login Form -->
     <div class="logo-container">
       <img src="/icons/login-logo.png" alt="Kika Lanches" class="logo" />
     </div>
-
-    <!-- Login Form -->
     <div class="login-form">
       <form @submit.prevent="handleLogin" class="form">
         <!-- Email Field -->
@@ -106,6 +106,8 @@ const handleLogin = async () => {
   display: flex;
   flex-direction: column;
   position: relative;
+  justify-content: center;
+  align-items: center;
   overflow: hidden;
 }
 
@@ -115,7 +117,7 @@ const handleLogin = async () => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #ff8a50 0%, #ff7043 50%, #ffab40 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 50%, #5a6bb8 100%);
   z-index: -1;
 }
 
@@ -125,11 +127,11 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   padding: 16px;
-  margin-top: 60px;
+  margin-bottom: 20px;
 
   .logo {
     max-width: 200px;
-    max-height: 200 px;
+    max-height: 200px;
     object-fit: contain;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
     transition: transform 0.3s ease;
@@ -141,7 +143,6 @@ const handleLogin = async () => {
 }
 
 .login-form {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;

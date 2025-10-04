@@ -74,6 +74,14 @@ export class AuthService {
   }
 
   /**
+   * Get stored user from localStorage
+   */
+  getStoredUser(): User | null {
+    const userStr = localStorage.getItem('user')
+    return userStr ? JSON.parse(userStr) : null
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {

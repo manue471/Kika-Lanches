@@ -122,7 +122,6 @@ const navigationItems: NavigationItem[] = [
   { name: 'Produtos', route: 'products' },
   { name: 'Categorias', route: 'categories' },
   { name: 'Clientes', route: 'customers' },
-  { name: 'Relatórios', route: 'reports' },
   { name: 'Relatórios de Clientes', route: 'customer-reports' },
   // Only show users menu for admins
   ...(userRole === 'admin' ? [{ name: 'Usuários', route: 'users' }] : [])
@@ -195,7 +194,7 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .header {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-medium) 100%);
+  background: #141d85;
   color: var(--white);
   padding: var(--spacing-4) 0;
   box-shadow: var(--shadow-lg);
@@ -385,7 +384,7 @@ onUnmounted(() => {
   align-items: center;
   padding: var(--spacing-6);
   border-bottom: 1px solid var(--gray-200);
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-medium) 100%);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
   color: var(--white);
 
   h2 {

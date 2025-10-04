@@ -28,12 +28,14 @@ export class ReportsService {
     customerId: number, 
     period?: CustomerReportPeriod,
     status?: string,
-    limit?: number
+    limit?: number,
+    payment_method?: string
   ): Promise<CustomerReportResponse> {
     const params = new URLSearchParams()
     if (period) params.append('period', period)
     if (status) params.append('status', status)
     if (limit) params.append('limit', limit.toString())
+    if (payment_method) params.append('payment_method', payment_method)
     
     const queryString = params.toString()
     const url = `/reports/customer/${customerId}${queryString ? `?${queryString}` : ''}`

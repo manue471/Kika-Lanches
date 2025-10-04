@@ -43,9 +43,9 @@ interface Props {
   item: CartItem
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
-const emit = defineEmits<{
+defineEmits<{
   updateQuantity: [productId: number, change: number]
   remove: [productId: number]
 }>()
@@ -89,7 +89,7 @@ const formattedPrice = computed(() => currency(props.item.price))
 }
 
 .quantity-btn {
-  background: var(--primary-medium);
+  background: var(--primary);
   color: var(--white);
   border: none;
   width: 24px;
