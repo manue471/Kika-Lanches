@@ -184,8 +184,7 @@ const isFormValid = computed(() => {
 // Role options
 const roleOptions = [
   { value: 'staff', label: 'Atendente' },
-  { value: 'tenant_owner', label: 'Proprietário' },
-  { value: 'client', label: 'Cliente' }
+  { value: 'admin', label: 'Administrador' }
 ]
 
 // Form reset function

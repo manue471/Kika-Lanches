@@ -115,16 +115,20 @@ const getUserRole = (): string | null => {
 }
 
 const userRole = getUserRole()
+const isAdmin = userRole === 'admin' || userRole === 'tenant_owner'
 
 const navigationItems: NavigationItem[] = [
   { name: 'Dashboard', route: 'dashboard' },
   { name: 'Vendas', route: 'sales' },
-  { name: 'Produtos', route: 'products' },
-  { name: 'Categorias', route: 'categories' },
   { name: 'Clientes', route: 'customers' },
-  { name: 'Relatórios de Clientes', route: 'customer-reports' },
-  // Only show users menu for admins
-  ...(userRole === 'admin' ? [{ name: 'Usuários', route: 'users' }] : [])
+  { name: 'Relatórios', route: 'reports' },
+  // Admin only items
+  ...(isAdmin ? [
+    { name: 'Produtos', route: 'products' },
+    { name: 'Categorias', route: 'categories' },
+    { name: 'Relatórios de Clientes', route: 'customer-reports' },
+    { name: 'Usuários', route: 'users' }
+  ] : [])
 ]
 
 // Mobile menu methods

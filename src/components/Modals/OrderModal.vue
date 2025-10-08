@@ -49,7 +49,7 @@
                 @input="calculateItemTotal()"
                 :error="getStockError(item.product_id, item.quantity)"
               />
-              <div v-if="getStockInfo(item.product_id)" class="stock-info">
+              <div class="stock-info">
                 <span class="stock-label">Estoque:</span>
                 <span 
                   class="stock-quantity"
