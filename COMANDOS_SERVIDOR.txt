@@ -1,0 +1,91 @@
+# ========================================
+# COMANDOS PARA EXECUTAR NO SERVIDOR
+# ========================================
+
+# PARTE 1: ATUALIZAR PROXY NGINX
+# ========================================
+
+cd /var/www/proxy
+cp nginx.conf nginx.conf.backup
+
+cat > nginx.conf << 'NGINX_EOF'
+events {}
+
+http {
+    upstream kikapp_api {
+        server nginx:80;
+    }
+
+    upstream kikapp_frontend {
+        server kikapp-fe:80;
+    }
+
+    server {
+        listen 80;
+        server_name kikapp.cloud;
+
+        location / {
+            proxy_pass http://kikapp_frontend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /api/ {
+            proxy_pass http://nginx:80/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+NGINX_EOF
+
+docker-compose restart nginx
+docker logs kikapp-proxy
+
+
+# PARTE 2: CRIAR FRONTEND
+# ========================================
+
+mkdir -p /var/www/kikapp-frontend
+cd /var/www/kikapp-frontend
+
+cat > docker-compose.prod.yml << 'COMPOSE_EOF'
+services:
+  frontend:
+    image: pabloemanuel/kikapp-fe:latest
+    container_name: kikapp-fe
+    restart: always
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  proxy:
+    external: true
+COMPOSE_EOF
+
+docker pull pabloemanuel/kikapp-fe:latest
+docker-compose -f docker-compose.prod.yml up -d
+
+
+# PARTE 3: VERIFICAR
+# ========================================
+
+docker ps | grep kikapp
+docker logs kikapp-fe
+curl -I http://kikapp.cloud
+curl -I http://kikapp.cloud/api/register
+
+
+# ========================================
+# FIM DOS COMANDOS
+# ========================================

@@ -259,7 +259,34 @@
         </div>
       </div>
     </div>
+
+    <template #footer>
+      <div class="modal-actions">
+        <BaseButton
+          variant="info"
+          @click="showTicketModal"
+        >
+          <span class="print-icon">🖨️</span>
+          Imprimir Ticket
+        </BaseButton>
+        <BaseButton
+          variant="secondary"
+          @click="$emit('update:show', false)"
+        >
+          Fechar
+        </BaseButton>
+      </div>
+    </template>
   </BaseModal>
+
+  <!-- Customer Ticket Modal -->
+  <CustomerTicketModal
+    :show="showCustomerTicketModal"
+    :customer-id="customerId"
+    :customer-info="customerInfo"
+    :options="ticketOptions"
+    @update:show="handleTicketClose"
+  />
 </template>
 
 <script setup lang="ts">
@@ -273,6 +300,7 @@ import BaseLoading from '@/components/Base/Loading.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import StatusBadge from '@/components/Business/StatusBadge.vue'
+import CustomerTicketModal from '@/components/Modals/CustomerTicketModal.vue'
 import type { CustomerReportResponse, BulkUpdateRequest } from '@/types/api'
 
 interface Props {
@@ -280,6 +308,14 @@ interface Props {
   customerReport: CustomerReportResponse | null
   isLoading: boolean
   error: string | null
+  // Filter options for ticket generation
+  filters?: {
+    period?: string
+    status?: string
+    payment_method?: string
+    from_date?: string
+    to_date?: string
+  }
 }
 
 const props = defineProps<Props>()
@@ -300,6 +336,9 @@ const activeTab = ref<'overview' | 'orders'>('overview')
 const selectedOrders = ref<number[]>([])
 const bulkNotes = ref<string>('')
 const isUpdating = computed(() => loading.isLoading.value)
+
+// Ticket modal state
+const showCustomerTicketModal = ref(false)
 
 // Select all logic
 const isAllSelected = computed(() => {
@@ -345,6 +384,39 @@ const getPaymentIcon = (paymentMethod: string) => {
     a_prazo: '📋'
   }
   return icons[paymentMethod] || '💰'
+}
+
+// Ticket modal computed properties and functions
+const customerId = computed(() => props.customerReport?.customer?.id || null)
+
+const customerInfo = computed(() => {
+  if (!props.customerReport?.customer) return null
+  return {
+    id: props.customerReport.customer.id,
+    name: props.customerReport.customer.name,
+    phone: props.customerReport.customer.phone,
+    class: (props.customerReport.customer as any).class // Type assertion for optional class property
+  }
+})
+
+const ticketOptions = computed(() => {
+  // Use the same filters that are used for the report
+  return {
+    limit: 10, // Default limit for tickets
+    status: props.filters?.status,
+    payment_method: props.filters?.payment_method,
+    from_date: props.filters?.from_date,
+    to_date: props.filters?.to_date,
+    period: props.filters?.period
+  }
+})
+
+const showTicketModal = () => {
+  showCustomerTicketModal.value = true
+}
+
+const handleTicketClose = () => {
+  showCustomerTicketModal.value = false
 }
 
 const getPaymentLabel = (paymentMethod: string) => {
@@ -977,6 +1049,19 @@ const markAsPaid = async () => {
           }
 }
 
+// Modal actions styles
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--gray-200);
+}
+
+.print-icon {
+  margin-right: var(--spacing-2);
+}
+
 // Mobile optimizations
 @media (max-width: 768px) {
   .receipt-header {
@@ -1046,6 +1131,11 @@ const markAsPaid = async () => {
     .select-all-checkbox {
       align-self: center;
     }
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+    gap: var(--spacing-3);
   }
 }
 </style>

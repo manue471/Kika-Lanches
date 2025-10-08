@@ -253,6 +253,50 @@ export class ReportsService {
   async delete(id: number): Promise<{ message: string }> {
     return await apiClient.delete<{ message: string }>(`/reports/${id}`)
   }
+
+  /**
+   * Get customer report ticket
+   */
+  async getCustomerTicket(
+    customerId: number,
+    options?: {
+      limit?: number
+      status?: string
+      payment_method?: string
+      from_date?: string
+      to_date?: string
+      period?: string
+    }
+  ): Promise<{
+    ticket: string
+    customer_id: number
+    filters: {
+      period?: string | null
+      status?: string | null
+      payment_method?: string | null
+      from_date?: string | null
+      to_date?: string | null
+    }
+    summary: {
+      total_orders: number
+      total_amount: string
+      pending_amount: string | number
+    }
+  }> {
+    const params = new URLSearchParams()
+    
+    if (options?.limit) params.append('limit', options.limit.toString())
+    if (options?.status) params.append('status', options.status)
+    if (options?.payment_method) params.append('payment_method', options.payment_method)
+    if (options?.from_date) params.append('from_date', options.from_date)
+    if (options?.to_date) params.append('to_date', options.to_date)
+    if (options?.period) params.append('period', options.period)
+    
+    const queryString = params.toString()
+    const url = `/reports/customer/${customerId}/ticket${queryString ? `?${queryString}` : ''}`
+    
+    return await apiClient.get(url)
+  }
 }
 
 // Export singleton instance

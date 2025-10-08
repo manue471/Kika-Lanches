@@ -145,6 +145,11 @@ class ApiClient {
     return response.data
   }
 
+  async getRaw(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    const response = await this.client.get(url, config)
+    return response
+  }
+
   // Utility methods
   setAuthToken(token: string) {
     // Set cookie with 7 days expiration

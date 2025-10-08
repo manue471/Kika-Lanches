@@ -128,6 +128,7 @@
       :customer-report="customerReport"
       :is-loading="isLoadingReport"
       :error="reportError"
+      :filters="currentFilters"
       @update:show="showReportModal = $event"
       @refresh="loadCustomerReport"
     />
@@ -135,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useCustomers } from '@/composables/useCustomers'
 import { useCustomerReports } from '@/composables/useCustomerReports'
 import BaseCard from '@/components/Base/Card.vue'
@@ -165,6 +166,15 @@ const {
 // State
 const showReportModal = ref(false)
 const selectedCustomer = ref<Customer | null>(null)
+
+// Computed
+const currentFilters = computed(() => ({
+  period: selectedPeriod.value,
+  status: selectedStatus.value || undefined,
+  payment_method: selectedPaymentMethod.value || undefined,
+  from_date: undefined, // Add date filters if needed
+  to_date: undefined
+}))
 
 // Methods
 const openCustomerReport = async (customer: Customer) => {

@@ -1,0 +1,13 @@
+services:
+  frontend-local:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://kikapp.cloud/api
+        VITE_TENANT_ID: 1
+    container_name: kikapp-fe-local
+    ports:
+      - "8080:80"  # Acesse em http://localhost:8080
+    restart: unless-stopped
+

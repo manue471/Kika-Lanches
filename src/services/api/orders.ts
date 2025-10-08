@@ -226,6 +226,21 @@ export class OrdersService {
   async bulkUpdateStatus(data: BulkUpdateRequest): Promise<BulkUpdateResponse> {
     return await apiClient.post<BulkUpdateResponse>('/orders/bulk-update', data)
   }
+
+  /**
+   * Get order ticket
+   */
+  async getTicket(id: number): Promise<string> {
+    const response = await apiClient.getRaw(`/orders/${id}/ticket`)
+    return response.data as string
+  }
+
+  /**
+   * Print order ticket
+   */
+  async printTicket(id: number): Promise<{ message: string }> {
+    return await apiClient.post<{ message: string }>(`/orders/${id}/print-ticket`)
+  }
 }
 
 // Export singleton instance
