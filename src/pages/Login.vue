@@ -50,10 +50,6 @@
           {{ isLoading ? 'Entrando...' : 'Entrar' }}
         </button>
 
-        <!-- Create Account Link -->
-        <router-link to="/register" class="create-account-link">
-          Criar Conta
-        </router-link>
       </form>
     </div>
   </div>
