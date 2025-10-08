@@ -156,7 +156,7 @@ class ApiClient {
     const expires = new Date()
     expires.setTime(expires.getTime() + (7 * 24 * 60 * 60 * 1000))
     
-    // Use secure only in HTTPS
+
     const isSecure = window.location.protocol === 'https:'
     const secureFlag = isSecure ? '; secure' : ''
     

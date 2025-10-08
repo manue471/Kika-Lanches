@@ -36,13 +36,13 @@ const router = createRouter({
       path: '/products',
       name: 'products',
       component: () => import('@/pages/Products.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
       path: '/categories',
       name: 'categories',
       component: () => import('@/pages/Categories.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
       path: '/customers',
@@ -66,7 +66,7 @@ const router = createRouter({
     path: '/customer-reports',
     name: 'customer-reports',
     component: () => import('@/pages/CustomerReports.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiresAdmin: true }
   }
   ]
 })
@@ -110,8 +110,8 @@ router.beforeEach(async (to, _from, next: NavigationGuardNext) => {
     return
   }
   
-  if (requiresAdmin && userRole !== 'admin') {
-    // Redirect to dashboard if not admin
+  if (requiresAdmin && userRole !== 'admin' && userRole !== 'tenant_owner') {
+    // Redirect to dashboard if not admin or tenant_owner
     next('/')
     return
   }
