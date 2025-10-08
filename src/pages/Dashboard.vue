@@ -72,6 +72,7 @@
               {{ isStaff ? 'Nenhum produto vendido hoje' : 'Nenhuma venda registrada' }}
             </div>
             <div
+              v-else
               v-for="(product, index) in topProducts"
               :key="product.productId"
               class="product-rank"
@@ -99,6 +100,7 @@
             {{ isStaff ? 'Nenhum pedido hoje' : 'Nenhum pedido registrado' }}
           </div>
           <div
+            v-else
             v-for="statusData in ordersByStatus"
             :key="statusData.status"
             class="status-item"
@@ -114,19 +116,19 @@
 
       <BaseCard title="Ações Rápidas" class="quick-actions">
         <div class="action-buttons">
-          <button class="action-btn" @click="$emit('navigate', 'sales')">
+          <button class="action-btn" @click="navigateTo('sales')">
             <span class="action-icon">🛒</span>
             Nova Venda
           </button>
-          <button class="action-btn" @click="$emit('showModal', 'customer')">
+          <button class="action-btn" @click="navigateTo('customers')">
             <span class="action-icon">👤</span>
-            Novo Cliente
+            Ver Clientes
           </button>
-          <button v-if="isAdmin" class="action-btn" @click="$emit('showModal', 'product')">
+          <button v-if="isAdmin" class="action-btn" @click="navigateTo('products')">
             <span class="action-icon">➕</span>
-            Adicionar Produto
+            Gerenciar Produtos
           </button>
-          <button v-if="isAdmin" class="action-btn" @click="$emit('navigate', 'reports')">
+          <button v-if="isAdmin" class="action-btn" @click="navigateTo('customer-reports')">
             <span class="action-icon">📈</span>
             Ver Relatórios
           </button>
@@ -138,11 +140,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useFormatter } from '@/composables/useUtils'
 import { useDashboard } from '@/composables/useDashboard'
 import StatCard from '@/components/Business/StatCard.vue'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
+
+const router = useRouter()
 
 // Get user role from localStorage
 const getUserRole = (): string | null => {
@@ -153,11 +158,10 @@ const userRole = getUserRole()
 const isStaff = computed(() => userRole === 'staff')
 const isAdmin = computed(() => userRole === 'admin' || userRole === 'tenant_owner')
 
-// Emits are used in template but not in script
-defineEmits<{
-  navigate: [route: string]
-  showModal: [type: string]
-}>()
+// Navigation handler
+const navigateTo = (route: string) => {
+  router.push({ name: route })
+}
 
 const { currency } = useFormatter()
 const { dashboardData, error, isLoading, loadDashboard, refresh } = useDashboard()

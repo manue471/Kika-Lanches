@@ -77,24 +77,8 @@
 
     <!-- Products Grid -->
     <div v-else class="products-grid" :class="{ 'list-view': viewMode === 'list' }">
-      <!-- Empty State -->
-      <div v-if="!products || products.length === 0" class="empty-state">
-        <div class="empty-icon">📦</div>
-        <h3>Nenhum produto encontrado</h3>
-        <p>Comece adicionando seu primeiro produto clicando no botão "Novo Produto"</p>
-        <BaseButton 
-          variant="primary" 
-          @click="showProductModal = true"
-          :loading="isCreating"
-        >
-          <span class="btn-icon">📦</span>
-          Novo Produto
-        </BaseButton>
-      </div>
-
       <!-- Products List -->
       <BaseCard
-        v-else
         v-for="product in products"
         :key="product.id"
         class="product-card"
@@ -167,7 +151,7 @@
     </div>
 
     <!-- Empty State -->
-    <BaseCard v-if="!isLoading && products.length === 0" class="empty-state">
+    <BaseCard v-if="!isLoading && (!products || products.length === 0)" class="empty-state">
       <div class="empty-content">
         <span class="empty-icon">📦</span>
         <h3>Nenhum produto encontrado</h3>
