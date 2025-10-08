@@ -146,21 +146,34 @@
 
     <template #footer>
       <div class="modal-actions">
-        <BaseButton
-          type="button"
-          variant="secondary"
-          @click="$emit('update:show', false)"
-        >
-          Cancelar
-        </BaseButton>
-        <BaseButton
-          type="submit"
-          variant="primary"
-          :loading="isSubmitting"
-          @click="handleSubmit"
-        >
-          {{ isEditing ? 'Atualizar' : 'Criar' }} Pedido
-        </BaseButton>
+        <div class="modal-actions-left">
+          <BaseButton
+            v-if="isEditing && props.orderId"
+            variant="info"
+            @click="showTicketForOrder"
+          >
+            <span class="print-icon">🖨️</span>
+            Imprimir Ticket
+          </BaseButton>
+        </div>
+        
+        <div class="modal-actions-right">
+          <BaseButton
+            type="button"
+            variant="secondary"
+            @click="$emit('update:show', false)"
+          >
+            Cancelar
+          </BaseButton>
+          <BaseButton
+            type="submit"
+            variant="primary"
+            :loading="isSubmitting"
+            @click="handleSubmit"
+          >
+            {{ isEditing ? 'Atualizar' : 'Criar' }} Pedido
+          </BaseButton>
+        </div>
       </div>
     </template>
   </BaseModal>
@@ -195,6 +208,13 @@
       </div>
     </template>
   </ConfirmModal>
+
+  <!-- Ticket Modal -->
+  <TicketModal
+    :show="showTicketModal"
+    :order-id="createdOrderId"
+    @update:show="handleTicketClose"
+  />
 </template>
 
 <script setup lang="ts">
@@ -209,6 +229,7 @@ import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import ConfirmModal from '@/components/Base/ConfirmModal.vue'
+import TicketModal from './TicketModal.vue'
 import type { Order } from '@/types/api'
 
 interface Props {
@@ -257,6 +278,10 @@ const stockConfirmData = ref<{
   availableStock: number
   allowBackorder: boolean
 } | null>(null)
+
+// Ticket modal
+const showTicketModal = ref(false)
+const createdOrderId = ref<number | null>(null)
 
 // Ensure modal starts closed
 console.log('Initial stock confirm state:', showStockConfirm.value)
@@ -642,12 +667,40 @@ const submitOrder = async () => {
       console.log('🔄 Refreshing orders list after save')
       await refresh()
       
+      // If it's a new order (not editing), show ticket
+      if (!isEditing.value && result.id) {
+        console.log('🎫 Showing ticket for new order:', result.id)
+        createdOrderId.value = result.id
+        showTicketModal.value = true
+      }
+      
       emit('success', result)
-      emit('update:show', false)
-      console.log('✅ Modal closed and success emitted')
+      
+      // Only close modal if not showing ticket
+      if (!showTicketModal.value) {
+        emit('update:show', false)
+        console.log('✅ Modal closed and success emitted')
+      }
     }
   } catch (error) {
     console.error('❌ Error submitting form:', error)
+  }
+}
+
+// Handle ticket modal close
+const handleTicketClose = () => {
+  showTicketModal.value = false
+  createdOrderId.value = null
+  emit('update:show', false)
+  console.log('✅ Ticket modal closed, main modal closing')
+}
+
+// Show ticket for existing order
+const showTicketForOrder = () => {
+  if (props.orderId) {
+    console.log('🎫 Showing ticket for existing order:', props.orderId)
+    createdOrderId.value = props.orderId
+    showTicketModal.value = true
   }
 }
 
@@ -845,8 +898,22 @@ const handleStockCancel = () => {
 
 .modal-actions {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-actions-left {
+  display: flex;
   gap: var(--spacing-3);
-  justify-content: flex-end;
+}
+
+.modal-actions-right {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+.print-icon {
+  margin-right: var(--spacing-2);
 }
 
 // Mobile optimizations
@@ -873,10 +940,21 @@ const handleStockCancel = () => {
 
   .modal-actions {
     flex-direction: column;
-    
-    > * {
-      width: 100%;
-    }
+    gap: var(--spacing-3);
+  }
+  
+  .modal-actions-left,
+  .modal-actions-right {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .modal-actions-left {
+    order: 2;
+  }
+  
+  .modal-actions-right {
+    order: 1;
   }
 }
 
