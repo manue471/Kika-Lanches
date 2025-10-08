@@ -121,7 +121,6 @@ const navigationItems: NavigationItem[] = [
   { name: 'Dashboard', route: 'dashboard' },
   { name: 'Vendas', route: 'sales' },
   { name: 'Clientes', route: 'customers' },
-  { name: 'Relatórios', route: 'reports' },
   // Admin only items
   ...(isAdmin ? [
     { name: 'Produtos', route: 'products' },
