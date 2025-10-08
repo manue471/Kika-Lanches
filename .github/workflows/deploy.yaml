@@ -67,6 +67,7 @@ jobs:
             mkdir -p /var/www/kikapp-frontend
             
             # Copiar docker-compose do home para o destino
+            sudo cp ~/kikapp-frontend-deploy/docker-compose.prod.yml /var/www/kikapp-frontend/ 2>/dev/null || \
             cp ~/kikapp-frontend-deploy/docker-compose.prod.yml /var/www/kikapp-frontend/
             
             # Ir para o diretório

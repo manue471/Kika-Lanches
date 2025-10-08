@@ -155,7 +155,12 @@ class ApiClient {
     // Set cookie with 7 days expiration
     const expires = new Date()
     expires.setTime(expires.getTime() + (7 * 24 * 60 * 60 * 1000))
-    document.cookie = `auth_token=${token}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`
+    
+    // Use secure only in HTTPS
+    const isSecure = window.location.protocol === 'https:'
+    const secureFlag = isSecure ? '; secure' : ''
+    
+    document.cookie = `auth_token=${token}; expires=${expires.toUTCString()}; path=/${secureFlag}; samesite=lax`
     this.client.defaults.headers.Authorization = `Bearer ${token}`
   }
 
