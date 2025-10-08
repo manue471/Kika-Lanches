@@ -1,8 +1,6 @@
 services:
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${{ secrets.DOCKER_USERNAME }}/kikapp-fe:latest
     container_name: kikapp-fe
     restart: always
     ports:
