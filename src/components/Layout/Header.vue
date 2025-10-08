@@ -27,15 +27,7 @@
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
       </button>
-      
-      <div class="header-actions">
-        <button class="theme-toggle" @click="toggleTheme">
-          {{ theme === 'dark' ? '☀️' : '🌙' }}
-        </button>
-        <button class="logout-btn" @click="handleLogout" title="Sair">
-          🚪
-        </button>
-      </div>
+    
     </div>
     
     <!-- Mobile Navigation Menu -->
