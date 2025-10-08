@@ -6,7 +6,7 @@ services:
       args:
         VITE_API_URL: http://kikapp.cloud/api
         VITE_TENANT_ID: 1
-    image: ${{ secrets.DOCKER_USERNAME }}/kikapp-fe:latest
+    image: manue471/kikapp-fe:latest
     container_name: kikapp-fe
     restart: always
     networks:
