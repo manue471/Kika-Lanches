@@ -21,7 +21,8 @@ defineProps<Props>()
 const getStatusIcon = (status: Order['status']): string => {
   const icons: Record<Order['status'], string> = {
     confirmed: '✅',
-    paid: '💰'
+    paid: '💰',
+    cancelled: '❌'
   }
   return icons[status] || '❓'
 }
@@ -29,7 +30,8 @@ const getStatusIcon = (status: Order['status']): string => {
 const getStatusLabel = (status: Order['status']): string => {
   const labels: Record<Order['status'], string> = {
     confirmed: 'Confirmado',
-    paid: 'Pago'
+    paid: 'Pago',
+    cancelled: 'Cancelado'
   }
   return labels[status] || status
 }
@@ -76,6 +78,13 @@ const getStatusLabel = (status: Order['status']): string => {
   background: #fef3c7;
   color: #92400e;
   border-color: #f59e0b;
+}
+
+// Status: Cancelled (Cancelado) - Vermelho
+.status-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #ef4444;
 }
 
 // Responsive adjustments

@@ -305,7 +305,8 @@ const productOptions = computed(() =>
 
 const statusOptions = [
   { value: 'confirmed', label: 'Confirmado' },
-  { value: 'paid', label: 'Pago' }
+  { value: 'paid', label: 'Pago' },
+  { value: 'cancelled', label: 'Cancelado' }
 ]
 
 const paymentMethodOptions = [

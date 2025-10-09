@@ -2,7 +2,6 @@ import axios, { type AxiosRequestConfig, type AxiosResponse, type AxiosError } f
 import { useToast } from 'vue-toastification'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-const TENANT_ID = import.meta.env.VITE_TENANT_ID || '1'
 
 class ApiClient {
   private client: ReturnType<typeof axios.create>

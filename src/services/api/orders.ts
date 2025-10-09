@@ -85,13 +85,6 @@ export class OrdersService {
   }
 
   /**
-   * Cancel order
-   */
-  async cancel(id: number): Promise<Order> {
-    return await this.updateStatus(id, 'cancelled')
-  }
-
-  /**
    * Confirm order
    */
   async confirm(id: number): Promise<Order> {
@@ -99,24 +92,17 @@ export class OrdersService {
   }
 
   /**
-   * Mark order as processing
+   * Mark order as paid
    */
-  async processing(id: number): Promise<Order> {
-    return await this.updateStatus(id, 'processing')
+  async markAsPaid(id: number): Promise<Order> {
+    return await this.updateStatus(id, 'paid')
   }
 
   /**
-   * Mark order as shipped
+   * Cancel order
    */
-  async shipped(id: number): Promise<Order> {
-    return await this.updateStatus(id, 'shipped')
-  }
-
-  /**
-   * Mark order as delivered
-   */
-  async delivered(id: number): Promise<Order> {
-    return await this.updateStatus(id, 'delivered')
+  async cancel(id: number): Promise<Order> {
+    return await this.updateStatus(id, 'cancelled')
   }
 
   /**

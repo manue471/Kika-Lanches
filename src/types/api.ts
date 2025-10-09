@@ -116,7 +116,7 @@ export type CustomerReportPeriod = 'last_week' | 'last_15_days' | 'last_month' |
 // Bulk Update Types
 export interface BulkUpdateRequest {
   order_ids: number[]
-  status: 'confirmed' | 'paid'
+  status: 'confirmed' | 'paid' | 'cancelled'
   notes?: string
 }
 
@@ -202,7 +202,7 @@ export interface Order {
   tenant_id: number
   user_id?: number
   order_number: string
-  status: 'confirmed' | 'paid'
+  status: 'confirmed' | 'paid' | 'cancelled'
   subtotal: number
   tax_amount?: number
   shipping_amount?: number
