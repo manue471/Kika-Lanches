@@ -31,7 +31,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kikapp-fe:latest
           build-args: |
-            VITE_API_URL=http://kikapp.cloud/api
+            VITE_API_URL=https://api.kikapp.cloud/api
             VITE_TENANT_ID=1
           
   deploy:
