@@ -21,7 +21,6 @@
           title="Sair"
         >
           <Icon icon="mdi:logout" class="logout-icon" />
-          Sair
         </button>
       </nav>
       
@@ -254,6 +253,9 @@ onUnmounted(() => {
   &.logout-btn {
     background: rgba(255, 87, 87, 0.1);
     border-color: rgba(255, 87, 87, 0.3);
+    margin-left: auto;
+    padding: var(--spacing-2);
+    min-width: auto;
     
     &:hover {
       background: rgba(255, 87, 87, 0.2);
@@ -261,8 +263,8 @@ onUnmounted(() => {
     }
     
     .logout-icon {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
     }
   }
 }
