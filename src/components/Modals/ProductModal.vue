@@ -177,35 +177,37 @@ const resetForm = () => {
   errors.value = {}
 }
 
-// Watch for modal show/hide and load product data
+// Watch for modal show/hide
 watch(() => props.show, async (show) => {
-  if (show && props.productId) {
+  if (show) {
     // Load product data when modal opens with productId
-    try {
-      const product = await getProduct(props.productId)
-      if (product) {
-        currentProduct.value = product
-        form.value = {
-          name: product.name,
-          description: product.description || '',
-          price: product.price,
-          sku: product.sku || '',
-          category_id: product.category_id,
-          is_active: product.is_active,
-          stock_quantity: product.stock_quantity || 0,
-          image: product.image || ''
+    if (props.productId) {
+      try {
+        const product = await getProduct(props.productId)
+        if (product) {
+          currentProduct.value = product
+          form.value = {
+            name: product.name,
+            description: product.description || '',
+            price: product.price,
+            sku: product.sku || '',
+            category_id: product.category_id,
+            is_active: product.is_active,
+            stock_quantity: product.stock_quantity || 0,
+            image: product.image || ''
+          }
         }
+      } catch (error) {
+        console.error('Error loading product:', error)
+        resetForm()
       }
-    } catch (error) {
-      console.error('Error loading product:', error)
-      resetForm()
     }
-  } else if (!show) {
+  } else {
     // Clear form and current product when modal closes
     resetForm()
     currentProduct.value = null
   }
-}, { immediate: true })
+})
 
 const validateForm = (): boolean => {
   errors.value = {}

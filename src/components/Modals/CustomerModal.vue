@@ -161,26 +161,23 @@ const formatPhone = (event: Event) => {
   form.value.phone = value
 }
 
-// Watch for customer changes
-watch(() => props.customer, (customer) => {
-  if (customer) {
-    form.value = {
-      name: customer.name,
-      email: customer.email || '',
-      phone: customer.phone || '',
-      is_active: customer.is_active,
-      preferences: customer.preferences || {}
-    }
-    preferencesText.value = customer.preferences ? 
-      Object.entries(customer.preferences).map(([key, value]) => `${key}: ${value}`).join('\n') : ''
-  } else {
-    resetForm()
-  }
-}, { immediate: true })
-
 // Watch for modal show/hide
 watch(() => props.show, (show) => {
-  if (!show) {
+  if (show) {
+    // Load customer data if editing
+    if (props.customer) {
+      form.value = {
+        name: props.customer.name,
+        email: props.customer.email || '',
+        phone: props.customer.phone || '',
+        is_active: props.customer.is_active,
+        preferences: props.customer.preferences || {}
+      }
+      preferencesText.value = props.customer.preferences ? 
+        Object.entries(props.customer.preferences).map(([key, value]) => `${key}: ${value}`).join('\n') : ''
+    }
+  } else {
+    // Clear form when modal closes
     resetForm()
   }
 })

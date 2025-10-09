@@ -202,25 +202,22 @@ const resetForm = () => {
   errors.value = {}
 }
 
-// Watch for user changes
-watch(() => props.user, (user) => {
-  if (user) {
-    form.value = {
-      name: user.name,
-      email: user.email,
-      password: '', // Don't populate password for security
-      role: user.role,
-      phone: user.phone || '',
-      is_active: user.is_active
-    }
-  } else {
-    resetForm()
-  }
-}, { immediate: true })
-
 // Watch for modal show/hide
 watch(() => props.show, (show) => {
-  if (!show) {
+  if (show) {
+    // Load user data if editing
+    if (props.user) {
+      form.value = {
+        name: props.user.name,
+        email: props.user.email,
+        password: '', // Don't populate password for security
+        role: props.user.role,
+        phone: props.user.phone || '',
+        is_active: props.user.is_active
+      }
+    }
+  } else {
+    // Clear form when modal closes
     resetForm()
   }
 })

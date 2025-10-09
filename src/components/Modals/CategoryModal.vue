@@ -97,23 +97,20 @@ const resetForm = () => {
   errors.value = {}
 }
 
-// Watch for category changes
-watch(() => props.category, (category) => {
-  if (category) {
-    form.value = {
-      name: category.name,
-      description: category.description || '',
-      image: category.image || '',
-      is_active: category.is_active
-    }
-  } else {
-    resetForm()
-  }
-}, { immediate: true })
-
 // Watch for modal show/hide
 watch(() => props.show, (show) => {
-  if (!show) {
+  if (show) {
+    // Load category data if editing
+    if (props.category) {
+      form.value = {
+        name: props.category.name,
+        description: props.category.description || '',
+        image: props.category.image || '',
+        is_active: props.category.is_active
+      }
+    }
+  } else {
+    // Clear form when modal closes
     resetForm()
   }
 })

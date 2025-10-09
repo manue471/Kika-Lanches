@@ -426,43 +426,6 @@ const resetForm = () => {
   errors.value = {}
 }
 
-// Watch for order ID changes
-watch(() => props.orderId, async (orderId) => {
-  console.log('OrderModal received orderId:', orderId)
-  if (orderId) {
-    try {
-      console.log('Fetching order by ID:', orderId)
-      const order = await getOrderById(orderId)
-      console.log('Order fetched:', order)
-      console.log('Order products:', (order as any).order_products)
-      
-      // Store original order for comparison
-      originalOrder.value = order
-      
-      form.value = {
-        customer_id: order.customer_id,
-        products: (order as any).order_products?.map((item: any) => ({
-          product_id: item.product_id,
-          quantity: item.quantity
-        })) || [{ product_id: 0, quantity: 1 }],
-        status: order.status,
-        payment_method: order.payment_method,
-        shipping_amount: order.shipping_amount || 0,
-        tax_amount: order.tax_amount || 0,
-        notes: order.notes || ''
-      }
-      console.log('Form updated for editing:', form.value)
-    } catch (error) {
-      console.error('Error fetching order:', error)
-      resetForm()
-    }
-  } else {
-    // Clear form and original order when orderId is null (creating new order)
-    resetForm()
-    originalOrder.value = null
-  }
-}, { immediate: true })
-
 // Watch for modal show/hide
 watch(() => props.show, async (show) => {
   if (show) {
@@ -471,9 +434,38 @@ watch(() => props.show, async (show) => {
       loadCustomers(),
       loadProducts()
     ])
-    console.log('Products loaded for modal:', products.value.length)
+    
+    // If opening with an orderId, load the order data
+    if (props.orderId) {
+      try {
+
+        const order = await getOrderById(props.orderId)
+
+        
+        // Store original order for comparison
+        originalOrder.value = order
+        
+        form.value = {
+          customer_id: order.customer_id,
+          products: (order as any).order_products?.map((item: any) => ({
+            product_id: item.product_id,
+            quantity: item.quantity
+          })) || [{ product_id: 0, quantity: 1 }],
+          status: order.status,
+          payment_method: order.payment_method,
+          shipping_amount: order.shipping_amount || 0,
+          tax_amount: order.tax_amount || 0,
+          notes: order.notes || ''
+        }
+      } catch (error) {
+        console.error('Error fetching order:', error)
+        resetForm()
+      }
+    }
   } else {
+    // Clear form and original order when modal closes
     resetForm()
+    originalOrder.value = null
   }
 })
 
