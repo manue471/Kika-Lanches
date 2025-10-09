@@ -15,6 +15,14 @@
         >
           {{ item.name }}
         </button>
+        <button
+          class="nav-btn logout-btn"
+          @click="handleLogout"
+          title="Sair"
+        >
+          <Icon icon="mdi:logout" class="logout-icon" />
+          Sair
+        </button>
       </nav>
       
       <!-- Mobile Menu Button -->
@@ -59,7 +67,7 @@
         
         <div class="mobile-menu-footer">
           <button class="mobile-logout-btn" @click="handleLogout">
-            <span class="logout-icon">🚪</span>
+            <Icon icon="mdi:logout" class="logout-icon" />
             <span>Sair</span>
           </button>
         </div>
@@ -70,6 +78,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { Icon } from '@iconify/vue'
 import { useAuth } from '@/composables/useAuth'
 
 interface NavigationItem {
@@ -227,6 +236,9 @@ onUnmounted(() => {
   transition: all var(--transition-fast);
   font-size: var(--font-size-sm);
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
 
   &:hover {
     background: rgba(255, 255, 255, 0.2);
@@ -237,6 +249,21 @@ onUnmounted(() => {
     background: var(--primary-light);
     color: var(--primary-dark);
     border-color: var(--primary-light);
+  }
+  
+  &.logout-btn {
+    background: rgba(255, 87, 87, 0.1);
+    border-color: rgba(255, 87, 87, 0.3);
+    
+    &:hover {
+      background: rgba(255, 87, 87, 0.2);
+      border-color: rgba(255, 87, 87, 0.5);
+    }
+    
+    .logout-icon {
+      width: 18px;
+      height: 18px;
+    }
   }
 }
 
@@ -459,7 +486,8 @@ onUnmounted(() => {
   }
 
   .logout-icon {
-    font-size: var(--font-size-lg);
+    width: 20px;
+    height: 20px;
   }
 }
 
