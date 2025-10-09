@@ -263,8 +263,8 @@ const handleLogin = async () => {
     margin-top: 40px;
 
     .logo {
-      width: 100px;
-      height: 100px;
+      width: 180px;
+      height: 180px;
     }
   }
 
@@ -289,8 +289,8 @@ const handleLogin = async () => {
     margin-top: 30px;
 
     .logo {
-      width: 80px;
-      height: 80px;
+      width: 150px;
+      height: 150px;
     }
   }
 
