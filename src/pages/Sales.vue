@@ -166,14 +166,6 @@
               >
                 Editar
               </BaseButton>
-              <BaseButton
-                size="sm"
-                variant="danger"
-                @click="cancelOrderConfirm(order.id)"
-                v-if="order.status === 'pending'"
-              >
-                Cancelar
-              </BaseButton>
             </div>
           </div>
         </BaseCard>
@@ -228,7 +220,6 @@ const {
   filterByDateRange,
   filterByTimeRange,
   loadTimePeriods,
-  cancelOrder,
   refresh
 } = useOrders()
 
@@ -344,11 +335,6 @@ const handleOrderSuccess = async () => {
   await refresh()
 }
 
-const cancelOrderConfirm = async (id: number) => {
-  if (confirm('Tem certeza que deseja cancelar este pedido?')) {
-    await cancelOrder(id)
-  }
-}
 
 // Initialize time periods on mount
 onMounted(async () => {

@@ -14,8 +14,7 @@ class ApiClient {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Tenant-ID': TENANT_ID,
+        'Accept': 'application/json'
       },
     })
 

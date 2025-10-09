@@ -20,26 +20,16 @@ defineProps<Props>()
 
 const getStatusIcon = (status: Order['status']): string => {
   const icons: Record<Order['status'], string> = {
-    pending: '⏳',
     confirmed: '✅',
-    processing: '👨‍🍳',
-    shipped: '🚚',
-    delivered: '📦',
-    paid: '💰',
-    cancelled: '❌'
+    paid: '💰'
   }
   return icons[status] || '❓'
 }
 
 const getStatusLabel = (status: Order['status']): string => {
   const labels: Record<Order['status'], string> = {
-    pending: 'Pendente',
     confirmed: 'Confirmado',
-    processing: 'Processando',
-    shipped: 'Enviado',
-    delivered: 'Entregue',
-    paid: 'Pago',
-    cancelled: 'Cancelado'
+    paid: 'Pago'
   }
   return labels[status] || status
 }
@@ -74,13 +64,6 @@ const getStatusLabel = (status: Order['status']): string => {
   line-height: 1;
 }
 
-// Status: Pending (Pendente) - Amarelo
-.status-pending {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #f59e0b;
-}
-
 // Status: Confirmed (Confirmado) - Verde
 .status-confirmed {
   background: #d1fae5;
@@ -88,39 +71,11 @@ const getStatusLabel = (status: Order['status']): string => {
   border-color: #10b981;
 }
 
-// Status: Processing (Processando) - Azul
-.status-processing {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #3b82f6;
-}
-
-// Status: Shipped (Enviado) - Roxo
-.status-shipped {
-  background: #e9d5ff;
-  color: #6b21a8;
-  border-color: #8b5cf6;
-}
-
-// Status: Delivered (Entregue) - Verde Escuro
-.status-delivered {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #22c55e;
-}
-
 // Status: Paid (Pago) - Dourado
 .status-paid {
   background: #fef3c7;
   color: #92400e;
   border-color: #f59e0b;
-}
-
-// Status: Cancelled (Cancelado) - Vermelho
-.status-cancelled {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #ef4444;
 }
 
 // Responsive adjustments

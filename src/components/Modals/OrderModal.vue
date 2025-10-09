@@ -256,7 +256,7 @@ const form = ref({
   products: [
     { product_id: 0, quantity: 1 }
   ],
-  status: 'pending' as Order['status'],
+  status: 'confirmed' as Order['status'],
   payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
   shipping_amount: 0,
   tax_amount: 0,
@@ -304,12 +304,8 @@ const productOptions = computed(() =>
 )
 
 const statusOptions = [
-  { value: 'pending', label: 'Pendente' },
   { value: 'confirmed', label: 'Confirmado' },
-  { value: 'processing', label: 'Processando' },
-  { value: 'shipped', label: 'Enviado' },
-  { value: 'delivered', label: 'Entregue' },
-  { value: 'cancelled', label: 'Cancelado' }
+  { value: 'paid', label: 'Pago' }
 ]
 
 const paymentMethodOptions = [
@@ -417,7 +413,7 @@ const resetForm = () => {
     products: [
       { product_id: 0, quantity: 1 }
     ],
-    status: 'pending' as Order['status'],
+    status: 'confirmed' as Order['status'],
     payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
     shipping_amount: 0,
     tax_amount: 0,

@@ -69,9 +69,12 @@
           v-model="form.role"
           :options="roleOptions"
           :error="errors.role"
-          :disabled="isSubmitting"
+          :disabled="isSubmitting || (isEditing && props.user?.role === 'admin' && !isCurrentUserAdmin)"
           required
         />
+        <small v-if="isEditing && props.user?.role === 'admin' && !isCurrentUserAdmin" class="role-info">
+          Apenas administradores podem editar o papel de outros administradores
+        </small>
       </div>
 
       <!-- Phone Field (Optional) -->
@@ -184,11 +187,33 @@ const isFormValid = computed(() => {
          form.value.role
 })
 
-// Role options
-const roleOptions = [
-  { value: 'staff', label: 'Atendente' },
-  { value: 'admin', label: 'Administrador' }
-]
+// Check current user role
+const isCurrentUserAdmin = computed(() => {
+  return currentUser.value?.role === 'admin'
+})
+
+const isCurrentUserTenantOwner = computed(() => {
+  return currentUser.value?.role === 'tenant_owner'
+})
+
+// Role options based on current user's role
+const roleOptions = computed(() => {
+  const options = [
+    { value: 'staff', label: 'Atendente' }
+  ]
+  
+  // Tenant owners can create other tenant owners
+  if (isCurrentUserTenantOwner.value || isCurrentUserAdmin.value) {
+    options.push({ value: 'tenant_owner', label: 'Proprietário' })
+  }
+  
+
+  if (isCurrentUserAdmin.value) {
+    options.push({ value: 'admin', label: 'Administrador' })
+  }
+  
+  return options
+})
 
 // Form reset function
 const resetForm = () => {
@@ -341,6 +366,13 @@ const submitUser = async () => {
   font-weight: 600;
   color: var(--gray-700);
   font-size: var(--font-size-sm);
+}
+
+.role-info {
+  color: var(--gray-600);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  margin-top: var(--spacing-1);
 }
 
 .password-input-container {

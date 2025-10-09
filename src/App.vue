@@ -16,7 +16,9 @@ const currentRoute = computed(() => {
 
 // Check if current route is auth route (login/register)
 const isAuthRoute = computed(() => {
-  return route.name === 'login' || route.name === 'register'
+  const authRoute = route.name === 'login' || route.name === 'register'
+  console.log('Current route:', route.name, 'isAuthRoute:', authRoute)
+  return authRoute
 })
 
 // Initialize auth on mount

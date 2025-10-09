@@ -88,7 +88,10 @@ const handleLogin = async () => {
 
     if (result) {
       showNotification('Login realizado com sucesso!', 'success')
-      router.push('/dashboard')
+      
+      await new Promise(resolve => setTimeout(resolve, 100))
+      await router.push({ name: 'dashboard' })
+      console.log('Navigation completed')
     }
   } catch (error) {
     console.error('Login error:', error)
