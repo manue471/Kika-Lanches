@@ -106,11 +106,18 @@
         >
           <div class="order-header" v-if="order && order.id">
             <div class="order-info">
-              <h3 class="order-number">Pedido #{{ order.id }}</h3>
-              <p class="order-customer" v-if="order.customer">
-                Cliente: {{ order.customer.name }}
-              </p>
+              <h3 class="order-number">{{ order.order_number }}</h3>
+              <div class="customer-info" v-if="order.customer">
+                <div class="customer-details">
+                  <span class="customer-icon">👤</span>
+                  <div class="customer-text">
+                    <p class="customer-name">{{ order.customer.name }}</p>
+                    <p class="customer-phone" v-if="order.customer.phone">{{ order.customer.phone }}</p>
+                  </div>
+                </div>
+              </div>
               <p class="order-date">
+                <span class="date-icon">📅</span>
                 {{ formatDate(order.created_at) }}
               </p>
             </div>
@@ -465,17 +472,61 @@ onMounted(async () => {
   flex: 1;
   
   .order-number {
-    margin: 0 0 var(--spacing-1) 0;
+    margin: 0 0 var(--spacing-3) 0;
     font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--primary-dark);
   }
   
-  .order-customer,
-  .order-date {
-    margin: 0 0 var(--spacing-1) 0;
+  .customer-info {
+    margin-bottom: var(--spacing-2);
+  }
+  
+  .customer-details {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--primary);
+  }
+  
+  .customer-icon {
+    font-size: var(--font-size-xl);
+    line-height: 1;
+  }
+  
+  .customer-text {
+    flex: 1;
+  }
+  
+  .customer-name {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--gray-800);
+    line-height: 1.4;
+  }
+  
+  .customer-phone {
+    margin: 2px 0 0 0;
     font-size: var(--font-size-sm);
     color: var(--gray-600);
+    font-family: monospace;
+  }
+  
+  .order-date {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+  }
+  
+  .date-icon {
+    font-size: var(--font-size-base);
   }
 }
 

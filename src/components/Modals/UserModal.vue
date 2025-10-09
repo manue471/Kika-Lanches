@@ -153,11 +153,12 @@ const emit = defineEmits<{
 }>()
 
 const { createUser, updateUser, isCreating, isUpdating } = useUsers()
-const { user: currentUser } = useAuth()
+const { user: currentUser, checkAuth } = useAuth()
 // const { showNotification } = useNotifications()
 
-// Debug logs
-console.log('UserModal mounted, props:', props)
+
+// Ensure user is loaded
+checkAuth()
 
 // Form state
 const form = ref({
@@ -277,20 +278,33 @@ const submitUser = async () => {
       result = await updateUser(props.user.id, updateData)
     } else {
       // Get tenant_id from current logged user
+      console.log('Current user value:', currentUser.value)
       const tenantId = currentUser.value?.tenant_id
       
       if (!tenantId) {
-        console.error('No tenant_id found for current user')
-        errors.value.general = 'Erro ao obter informações do usuário logado'
-        return
+        console.error('No tenant_id found for current user:', currentUser.value)
+        
+        // Try to reload user data
+        await checkAuth()
+        const retryTenantId = currentUser.value?.tenant_id
+        
+        if (!retryTenantId) {
+          console.error('Still no tenant_id after retry')
+          errors.value.general = 'Erro ao obter informações do usuário logado. Por favor, recarregue a página.'
+          return
+        }
+        
+        console.log('Tenant ID found after retry:', retryTenantId)
       }
+
+      const finalTenantId = tenantId || currentUser.value?.tenant_id || 1
 
       const createData: CreateUserRequest = {
         name: form.value.name,
         email: form.value.email,
         password: form.value.password,
         role: form.value.role,
-        tenant_id: tenantId,
+        tenant_id: finalTenantId!,
         phone: form.value.phone || undefined,
         is_active: form.value.is_active
       }
