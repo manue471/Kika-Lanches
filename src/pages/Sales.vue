@@ -5,7 +5,7 @@
       <h2>Gerenciar Vendas</h2>
       <BaseButton 
         variant="primary" 
-        @click="showOrderModal = true"
+        @click="createNewOrder"
         :loading="isCreating"
       >
         <span class="btn-icon">🛒</span>
@@ -86,14 +86,14 @@
         <div class="empty-icon">🛒</div>
         <h3>Nenhuma venda encontrada</h3>
         <p>Comece criando sua primeira venda clicando no botão "Nova Venda"</p>
-        <BaseButton 
-          variant="primary" 
-          @click="showOrderModal = true"
-          :loading="isCreating"
-        >
-          <span class="btn-icon">🛒</span>
-          Nova Venda
-        </BaseButton>
+          <BaseButton 
+            variant="primary" 
+            @click="createNewOrder"
+            :loading="isCreating"
+          >
+            <span class="btn-icon">🛒</span>
+            Nova Venda
+          </BaseButton>
       </div>
 
       <!-- Orders List -->
@@ -313,6 +313,11 @@ const handleTimeRangeFilter = () => {
   filterByTimeRange(timeRangeFilter.value)
 }
 
+
+const createNewOrder = () => {
+  selectedOrderId.value = null
+  showOrderModal.value = true
+}
 
 const viewOrder = (order: Order) => {
   selectedOrderId.value = order.id

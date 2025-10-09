@@ -58,10 +58,6 @@
         </nav>
         
         <div class="mobile-menu-footer">
-          <button class="mobile-theme-toggle" @click="toggleTheme">
-            <span class="theme-icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-            <span>{{ theme === 'dark' ? 'Modo Claro' : 'Modo Escuro' }}</span>
-          </button>
           <button class="mobile-logout-btn" @click="handleLogout">
             <span class="logout-icon">🚪</span>
             <span>Sair</span>
@@ -74,7 +70,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useTheme } from '@/composables/useStorage'
 import { useAuth } from '@/composables/useAuth'
 
 interface NavigationItem {
@@ -92,11 +87,7 @@ const emit = defineEmits<{
   navigate: [route: string]
 }>()
 
-const { theme, toggleTheme, initTheme } = useTheme()
 const { logout } = useAuth()
-
-// Initialize theme on mount
-initTheme()
 
 // Mobile menu state
 const isMobileMenuOpen = ref(false)
@@ -255,21 +246,6 @@ onUnmounted(() => {
   gap: var(--spacing-2);
 }
 
-.theme-toggle {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--white);
-  padding: var(--spacing-2);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--font-size-lg);
-  flex-shrink: 0;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-}
 
 .logout-btn {
   background: rgba(255, 87, 87, 0.1);
@@ -461,29 +437,6 @@ onUnmounted(() => {
   background: var(--gray-50);
 }
 
-.mobile-theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-3);
-  width: 100%;
-  padding: var(--spacing-3);
-  background: var(--white);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-
-  &:hover {
-    background: var(--gray-100);
-    border-color: var(--primary-light);
-  }
-}
-
-.theme-icon {
-  font-size: var(--font-size-lg);
-}
 
 .mobile-logout-btn {
   display: flex;
@@ -528,9 +481,6 @@ onUnmounted(() => {
     display: flex;
   }
 
-  .theme-toggle {
-    display: none;
-  }
 }
 
 @media (max-width: 480px) {

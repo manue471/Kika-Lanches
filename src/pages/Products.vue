@@ -5,7 +5,7 @@
       <h2>Gerenciar Produtos</h2>
       <BaseButton 
         variant="primary" 
-        @click="showProductModal = true"
+        @click="createNewProduct"
         :loading="isCreating"
       >
         <span class="btn-icon">➕</span>
@@ -29,12 +29,6 @@
           @change="handleCategoryFilter"
         />
         <div class="filter-actions">
-          <BaseButton
-            :variant="showOnlyActive ? 'primary' : 'secondary'"
-            @click="toggleActiveFilter"
-          >
-            {{ showOnlyActive ? 'Ativos' : 'Todos' }}
-          </BaseButton>
           <div class="view-toggle">
             <button
               :class="['view-btn', { active: viewMode === 'grid' }]"
@@ -156,7 +150,7 @@
         <span class="empty-icon">📦</span>
         <h3>Nenhum produto encontrado</h3>
         <p>Comece criando seu primeiro produto!</p>
-        <BaseButton variant="primary" @click="showProductModal = true">
+        <BaseButton variant="primary" @click="createNewProduct">
           Criar Produto
         </BaseButton>
       </div>
@@ -165,7 +159,7 @@
     <!-- Product Modal -->
     <ProductModal
       v-model:show="showProductModal"
-      :product="selectedProduct"
+      :product-id="selectedProductId"
       @success="handleProductSuccess"
     />
   </div>
@@ -189,7 +183,6 @@ const {
   categoryOptions,
   searchTerm,
   selectedCategory,
-  showOnlyActive,
   
   // Loading states
   isLoading,
@@ -204,7 +197,6 @@ const {
   // Methods
   searchProducts,
   filterByCategory,
-  toggleActiveFilter,
   // createProduct,
   // updateProduct,
   deleteProduct,
@@ -217,7 +209,7 @@ const { currency, date } = useFormatter()
 // UI State
 const viewMode = ref<'grid' | 'list'>('grid')
 const showProductModal = ref(false)
-const selectedProduct = ref<Product | null>(null)
+const selectedProductId = ref<number | null>(null)
 
 // Computed
 const formatCurrency = currency
@@ -234,14 +226,20 @@ const handleCategoryFilter = () => {
   filterByCategory(selectedCategory.value)
 }
 
+const createNewProduct = () => {
+  selectedProductId.value = null
+  showProductModal.value = true
+}
+
 const editProduct = (product: Product) => {
-  selectedProduct.value = product
+  selectedProductId.value = product.id
   showProductModal.value = true
 }
 
 const handleProductSuccess = () => {
   showProductModal.value = false
-  selectedProduct.value = null
+  selectedProductId.value = null
+  refresh() // Refresh the products list
 }
 
 const toggleProductActive = async (id: number) => {

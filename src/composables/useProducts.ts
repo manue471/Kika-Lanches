@@ -89,6 +89,19 @@ export function useProducts() {
     }
   }
   
+  const getProduct = async (id: number) => {
+    try {
+      loading.setLoading(true)
+      const response = await productsService.getById(id)
+      return response
+    } catch (err) {
+      notifications.error('Erro ao carregar produto')
+      throw err
+    } finally {
+      loading.setLoading(false)
+    }
+  }
+
   const deleteProduct = async (id: number) => {
     try {
       loading.setLoading(true)
@@ -174,6 +187,7 @@ export function useProducts() {
     loadCategories,
     createProduct,
     updateProduct,
+    getProduct,
     deleteProduct,
     searchProducts,
     filterByCategory,

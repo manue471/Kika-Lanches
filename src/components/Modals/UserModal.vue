@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useUsers } from '../../composables/useUsers'
+import { useAuth } from '@/composables/useAuth'
 // import { useNotifications } from '@/composables/useNotifications'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
@@ -152,6 +153,7 @@ const emit = defineEmits<{
 }>()
 
 const { createUser, updateUser, isCreating, isUpdating } = useUsers()
+const { user: currentUser } = useAuth()
 // const { showNotification } = useNotifications()
 
 // Debug logs
@@ -277,11 +279,21 @@ const submitUser = async () => {
 
       result = await updateUser(props.user.id, updateData)
     } else {
+      // Get tenant_id from current logged user
+      const tenantId = currentUser.value?.tenant_id
+      
+      if (!tenantId) {
+        console.error('No tenant_id found for current user')
+        errors.value.general = 'Erro ao obter informações do usuário logado'
+        return
+      }
+
       const createData: CreateUserRequest = {
         name: form.value.name,
         email: form.value.email,
         password: form.value.password,
         role: form.value.role,
+        tenant_id: tenantId,
         phone: form.value.phone || undefined,
         is_active: form.value.is_active
       }

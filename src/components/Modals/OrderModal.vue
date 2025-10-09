@@ -457,6 +457,7 @@ watch(() => props.orderId, async (orderId) => {
       resetForm()
     }
   } else {
+    // Clear form and original order when orderId is null (creating new order)
     resetForm()
     originalOrder.value = null
   }

@@ -8,7 +8,7 @@
       </div>
       <BaseButton 
         variant="primary" 
-        @click="showCustomerModal = true"
+        @click="createNewCustomer"
         :loading="isCreating"
       >
         <span class="btn-icon">👥</span>
@@ -46,7 +46,7 @@
         <p>Comece adicionando seu primeiro cliente clicando no botão "Novo Cliente"</p>
         <BaseButton 
           variant="primary" 
-          @click="showCustomerModal = true"
+          @click="createNewCustomer"
           :loading="isCreating"
         >
           <span class="btn-icon">👥</span>
@@ -176,6 +176,11 @@ const selectedCustomer = ref<Customer | null>(null)
 const customerToDelete = ref<Customer | null>(null)
 
 // Methods
+const createNewCustomer = () => {
+  selectedCustomer.value = null
+  showCustomerModal.value = true
+}
+
 const editCustomer = (customer: Customer) => {
   selectedCustomer.value = customer
   showCustomerModal.value = true

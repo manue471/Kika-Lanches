@@ -22,7 +22,11 @@ export function useAuth() {
     // Set cookie with 7 days expiration
     const expires = new Date()
     expires.setTime(expires.getTime() + (7 * 24 * 60 * 60 * 1000))
-    document.cookie = `auth_token=${token}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`
+    
+    const isSecure = window.location.protocol === 'https:'
+    const secureFlag = isSecure ? '; secure' : ''
+    
+    document.cookie = `auth_token=${token}; expires=${expires.toUTCString()}; path=/${secureFlag}; samesite=lax`
   }
 
   const getAuthToken = (): string | null => {
@@ -39,6 +43,7 @@ export function useAuth() {
   const clearAuth = () => {
     // Remove cookie
     document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    localStorage.removeItem('user_role')
     user.value = null
   }
 
@@ -50,6 +55,12 @@ export function useAuth() {
       if (response?.token) {
         setAuthToken(response.token)
         user.value = response.user
+        
+        // Store user role in localStorage for navigation guards
+        if (response.user?.role) {
+          localStorage.setItem('user_role', response.user.role)
+        }
+        
         notifications.success('Login realizado com sucesso!')
         return response
       }
@@ -99,6 +110,12 @@ export function useAuth() {
         loading.setLoading(true)
         const response = await authService.getMe()
         user.value = response
+        
+        // Store user role if not already stored
+        if (response?.role && !localStorage.getItem('user_role')) {
+          localStorage.setItem('user_role', response.role)
+        }
+        
         return true
       }
       return isAuthenticated.value

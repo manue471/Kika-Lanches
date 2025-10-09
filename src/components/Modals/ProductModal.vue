@@ -71,20 +71,6 @@
           />
         </div>
 
-        <!-- Status -->
-        <div class="form-group">
-          <label class="form-label">Status</label>
-          <div class="form-checkbox-group">
-            <label class="form-checkbox">
-              <input
-                v-model="form.is_active"
-                type="checkbox"
-              />
-              <span class="checkmark"></span>
-              Produto ativo
-            </label>
-          </div>
-        </div>
       </div>
 
       <!-- Descrição -->
@@ -147,7 +133,7 @@ import type { Product, CreateProductRequest, UpdateProductRequest } from '@/type
 
 interface Props {
   show: boolean
-  product?: Product | null
+  productId?: number | null
 }
 
 const props = defineProps<Props>()
@@ -157,7 +143,7 @@ const emit = defineEmits<{
   'success': [product: Product]
 }>()
 
-const { createProduct, updateProduct, isCreating, isUpdating } = useProducts()
+const { createProduct, updateProduct, getProduct, isCreating, isUpdating } = useProducts()
 const { categoryOptions, isLoading: isLoadingCategories } = useCategories()
 
 // Form state
@@ -173,8 +159,9 @@ const form = ref<CreateProductRequest & UpdateProductRequest>({
 })
 
 const errors = ref<Record<string, string>>({})
+const currentProduct = ref<Product | null>(null)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
-const isEditing = computed(() => !!props.product)
+const isEditing = computed(() => !!props.productId)
 
 const resetForm = () => {
   form.value = {
@@ -190,30 +177,35 @@ const resetForm = () => {
   errors.value = {}
 }
 
-// Watch for product changes
-watch(() => props.product, (product) => {
-  if (product) {
-    form.value = {
-      name: product.name,
-      description: product.description || '',
-      price: product.price,
-      sku: product.sku || '',
-      category_id: product.category_id,
-      is_active: product.is_active,
-      stock_quantity: product.stock_quantity || 0,
-      image: product.image || ''
+// Watch for modal show/hide and load product data
+watch(() => props.show, async (show) => {
+  if (show && props.productId) {
+    // Load product data when modal opens with productId
+    try {
+      const product = await getProduct(props.productId)
+      if (product) {
+        currentProduct.value = product
+        form.value = {
+          name: product.name,
+          description: product.description || '',
+          price: product.price,
+          sku: product.sku || '',
+          category_id: product.category_id,
+          is_active: product.is_active,
+          stock_quantity: product.stock_quantity || 0,
+          image: product.image || ''
+        }
+      }
+    } catch (error) {
+      console.error('Error loading product:', error)
+      resetForm()
     }
-  } else {
+  } else if (!show) {
+    // Clear form and current product when modal closes
     resetForm()
+    currentProduct.value = null
   }
 }, { immediate: true })
-
-// Watch for modal show/hide
-watch(() => props.show, (show) => {
-  if (!show) {
-    resetForm()
-  }
-})
 
 const validateForm = (): boolean => {
   errors.value = {}
@@ -239,8 +231,8 @@ const handleSubmit = async () => {
   try {
     let result: Product | null = null
 
-    if (isEditing.value && props.product) {
-      result = await updateProduct(props.product.id, form.value)
+    if (isEditing.value && currentProduct.value) {
+      result = await updateProduct(currentProduct.value.id, form.value)
     } else {
       result = await createProduct(form.value)
     }

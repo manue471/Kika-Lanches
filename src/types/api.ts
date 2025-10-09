@@ -51,6 +51,7 @@ export interface CreateUserRequest {
   email: string
   password: string
   role: 'admin' | 'tenant_owner' | 'staff' | 'client'
+  tenant_id: number
   phone?: string
   is_active?: boolean
 }

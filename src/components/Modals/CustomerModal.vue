@@ -37,8 +37,10 @@
           <BaseInput
             id="phone"
             v-model="form.phone"
+            type="tel"
             placeholder="(11) 99999-9999"
             :error="errors.phone"
+            @input="formatPhone"
           />
         </div>
 
@@ -141,6 +143,22 @@ const resetForm = () => {
   }
   preferencesText.value = ''
   errors.value = {}
+}
+
+const formatPhone = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  let value = input.value.replace(/\D/g, '') // Remove non-digits
+  
+  if (value.length <= 11) {
+    if (value.length >= 2) {
+      value = `(${value.slice(0, 2)}) ${value.slice(2)}`
+    }
+    if (value.length >= 10) {
+      value = value.slice(0, 10) + '-' + value.slice(10)
+    }
+  }
+  
+  form.value.phone = value
 }
 
 // Watch for customer changes

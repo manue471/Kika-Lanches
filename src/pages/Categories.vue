@@ -8,7 +8,7 @@
       </div>
       <BaseButton 
         variant="primary" 
-        @click="showCategoryModal = true"
+        @click="createNewCategory"
         :loading="isCreating"
       >
         <span class="btn-icon">📁</span>
@@ -46,7 +46,7 @@
         <p>Comece criando sua primeira categoria clicando no botão "Nova Categoria"</p>
         <BaseButton 
           variant="primary" 
-          @click="showCategoryModal = true"
+          @click="createNewCategory"
           :loading="isCreating"
         >
           <span class="btn-icon">📁</span>
@@ -152,6 +152,11 @@ const showCategoryModal = ref(false)
 const selectedCategory = ref<Category | null>(null)
 
 // Methods
+const createNewCategory = () => {
+  selectedCategory.value = null
+  showCategoryModal.value = true
+}
+
 const editCategory = (category: Category) => {
   selectedCategory.value = category
   showCategoryModal.value = true
