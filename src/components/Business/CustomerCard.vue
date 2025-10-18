@@ -3,15 +3,18 @@
     <div class="customer-card-header">
       <div>
         <div class="customer-card-name">{{ customer.name }}</div>
-        <div v-if="customer.class" class="customer-card-class">{{ customer.class }}</div>
+        <div v-if="customerClass" class="customer-card-class">{{ customerClass }}</div>
       </div>
     </div>
     <div class="customer-card-info">
-      <div v-if="customer.guardian">
-        <strong>Responsável:</strong> {{ customer.guardian }}
+      <div v-if="customerGuardian">
+        <strong>Responsável:</strong> {{ customerGuardian }}
       </div>
       <div v-if="customer.phone">
         <strong>Telefone:</strong> {{ formattedPhone }}
+      </div>
+      <div v-if="customerGuardianPhone">
+        <strong>Tel. Responsável:</strong> {{ formattedGuardianPhone }}
       </div>
     </div>
     <div class="customer-card-actions">
@@ -48,9 +51,15 @@ import BaseButton from '@/components/Base/Button.vue'
 interface Customer {
   id: number
   name: string
-  class?: string
-  guardian?: string
   phone?: string
+  preferences?: {
+    class_info?: {
+      class?: string
+      guardian?: string
+      guardian_phone?: string
+      notes?: string
+    }
+  }
 }
 
 interface Props {
@@ -67,8 +76,24 @@ defineEmits<{
 
 const { phone } = useFormatter()
 
+const customerClass = computed(() => {
+  return props.customer.preferences?.class_info?.class || ''
+})
+
+const customerGuardian = computed(() => {
+  return props.customer.preferences?.class_info?.guardian || ''
+})
+
+const customerGuardianPhone = computed(() => {
+  return props.customer.preferences?.class_info?.guardian_phone || ''
+})
+
 const formattedPhone = computed(() => {
   return props.customer.phone ? phone(props.customer.phone) : ''
+})
+
+const formattedGuardianPhone = computed(() => {
+  return customerGuardianPhone.value ? phone(customerGuardianPhone.value) : ''
 })
 </script>
 

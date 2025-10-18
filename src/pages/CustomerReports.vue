@@ -74,7 +74,7 @@
         <div>
           <h3>Erro ao carregar clientes</h3>
           <p>{{ error }}</p>
-          <BaseButton @click="loadCustomers" variant="secondary">
+          <BaseButton @click="() => loadCustomers(true)" variant="secondary">
             Tentar novamente
           </BaseButton>
         </div>

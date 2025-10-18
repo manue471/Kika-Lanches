@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { productsService, categoriesService } from '@/services/api'
 import { useLoading } from '@/composables/useLoading'
 import { useNotifications } from '@/composables/useNotifications'
-import type { Product, CreateProductRequest, Category } from '@/types/api'
+import type { Product, CreateProductRequest, Category, ProductFilters } from '@/types/api'
 
 export function useProducts() {
   const notifications = useNotifications()
@@ -11,7 +11,13 @@ export function useProducts() {
   // Search and filters
   const searchTerm = ref('')
   const selectedCategory = ref<number | undefined>(undefined)
-  const showOnlyActive = ref(true)
+  const selectedCategories = ref<number[]>([])
+  const minPrice = ref<number | undefined>(undefined)
+  const maxPrice = ref<number | undefined>(undefined)
+  const inStock = ref<boolean | undefined>(undefined)
+  const sortBy = ref<'name' | 'price' | 'created_at' | 'updated_at'>('created_at')
+  const sortOrder = ref<'asc' | 'desc'>('desc')
+  const showOnlyActive = ref<boolean | undefined>(undefined)
   
   // State
   const products = ref<Product[]>([])
@@ -37,7 +43,21 @@ export function useProducts() {
     try {
       loading.setLoading(true)
       error.value = null
-      const response = await productsService.list()
+      
+      const filters: ProductFilters = {
+        search: searchTerm.value || undefined,
+        category_id: selectedCategory.value,
+        category_ids: selectedCategories.value.length > 0 ? selectedCategories.value : undefined,
+        min_price: minPrice.value,
+        max_price: maxPrice.value,
+        in_stock: inStock.value,
+        sort_by: sortBy.value,
+        sort_order: sortOrder.value,
+        is_active: showOnlyActive.value,
+        per_page: 50
+      }
+      
+      const response = await productsService.list(filters)
       products.value = response.data
     } catch (err) {
       error.value = 'Erro ao carregar produtos'
@@ -127,15 +147,43 @@ export function useProducts() {
     loadProducts()
   }
   
+  const filterByCategories = (categoryIds: number[]) => {
+    selectedCategories.value = categoryIds
+    loadProducts()
+  }
+  
+  const filterByPriceRange = (min: number | undefined, max: number | undefined) => {
+    minPrice.value = min
+    maxPrice.value = max
+    loadProducts()
+  }
+  
+  const filterByStock = (inStockValue: boolean | undefined) => {
+    inStock.value = inStockValue
+    loadProducts()
+  }
+  
+  const sortProducts = (by: 'name' | 'price' | 'created_at' | 'updated_at', order: 'asc' | 'desc') => {
+    sortBy.value = by
+    sortOrder.value = order
+    loadProducts()
+  }
+  
   const toggleActiveFilter = () => {
-    showOnlyActive.value = !showOnlyActive.value
+    showOnlyActive.value = showOnlyActive.value === undefined ? true : undefined
     loadProducts()
   }
   
   const clearFilters = () => {
     searchTerm.value = ''
     selectedCategory.value = undefined
-    showOnlyActive.value = true
+    selectedCategories.value = []
+    minPrice.value = undefined
+    maxPrice.value = undefined
+    inStock.value = undefined
+    sortBy.value = 'created_at'
+    sortOrder.value = 'desc'
+    showOnlyActive.value = undefined
     loadProducts()
   }
   
@@ -169,6 +217,12 @@ export function useProducts() {
     categories,
     searchTerm,
     selectedCategory,
+    selectedCategories,
+    minPrice,
+    maxPrice,
+    inStock,
+    sortBy,
+    sortOrder,
     showOnlyActive,
     error,
     
@@ -191,6 +245,10 @@ export function useProducts() {
     deleteProduct,
     searchProducts,
     filterByCategory,
+    filterByCategories,
+    filterByPriceRange,
+    filterByStock,
+    sortProducts,
     toggleActiveFilter,
     toggleActive,
     refresh: loadProducts,

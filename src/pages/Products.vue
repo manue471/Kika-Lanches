@@ -15,20 +15,107 @@
 
     <!-- Filters -->
     <BaseCard class="filters-card">
+      <div class="filters-header">
+        <h3>Filtros</h3>
+        <BaseButton 
+          variant="secondary" 
+          size="sm" 
+          @click="clearAllFilters"
+        >
+          Limpar Filtros
+        </BaseButton>
+      </div>
+      
       <div class="filters-grid">
-        <BaseInput
-          v-model="searchTerm"
-          placeholder="Buscar produtos..."
-          @input="handleSearch"
-          class="search-input"
-        />
-        <BaseSelect
-          v-model="selectedCategory"
-          :options="categoryOptions"
-          placeholder="Todas as categorias"
-          @change="handleCategoryFilter"
-        />
-        <div class="filter-actions">
+        <!-- Search -->
+        <div class="filter-group">
+          <label class="filter-label">Buscar</label>
+          <BaseInput
+            v-model="searchTerm"
+            placeholder="Nome, descrição ou SKU..."
+            @input="handleSearch"
+            class="search-input"
+          />
+        </div>
+
+        <!-- Category Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Categoria</label>
+          <BaseSelect
+            v-model="selectedCategory"
+            :options="categoryOptions"
+            placeholder="Todas as categorias"
+            @change="handleCategoryFilter"
+          />
+        </div>
+
+        <!-- Price Range -->
+        <div class="filter-group">
+          <label class="filter-label">Faixa de Preço</label>
+          <div class="price-range">
+            <BaseInput
+              v-model="minPriceInput"
+              type="number"
+              placeholder="Mín."
+              @input="handlePriceFilter"
+              class="price-input"
+            />
+            <span class="price-separator">até</span>
+            <BaseInput
+              v-model="maxPriceInput"
+              type="number"
+              placeholder="Máx."
+              @input="handlePriceFilter"
+              class="price-input"
+            />
+          </div>
+        </div>
+
+        <!-- Stock Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Estoque</label>
+          <BaseSelect
+            v-model="stockFilter"
+            :options="stockOptions"
+            placeholder="Todos"
+            @change="handleStockFilter"
+          />
+        </div>
+
+        <!-- Sort -->
+        <div class="filter-group">
+          <label class="filter-label">Ordenar por</label>
+          <div class="sort-controls">
+            <BaseSelect
+              v-model="sortBy"
+              :options="sortOptions"
+              @change="handleSort"
+            />
+            <BaseButton
+              :variant="sortOrder === 'asc' ? 'primary' : 'secondary'"
+              size="sm"
+              @click="toggleSortOrder"
+              class="sort-order-btn"
+            >
+              {{ sortOrder === 'asc' ? '↑' : '↓' }}
+            </BaseButton>
+          </div>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Status</label>
+          <BaseSelect
+            v-model="statusFilter"
+            :options="statusOptions"
+            placeholder="Todos"
+            @change="handleStatusFilter"
+          />
+        </div>
+
+        <!-- View Toggle -->
+        <div class="filter-group">
+          <label class="filter-label">Visualização</label>
           <div class="view-toggle">
             <button
               :class="['view-btn', { active: viewMode === 'grid' }]"
@@ -183,6 +270,9 @@ const {
   categoryOptions,
   searchTerm,
   selectedCategory,
+  sortBy,
+  sortOrder,
+  showOnlyActive,
   
   // Loading states
   isLoading,
@@ -197,11 +287,15 @@ const {
   // Methods
   searchProducts,
   filterByCategory,
+  filterByPriceRange,
+  filterByStock,
+  sortProducts,
   // createProduct,
   // updateProduct,
   deleteProduct,
   toggleActive,
-  refresh
+  refresh,
+  clearFilters
 } = useProducts()
 
 const { currency, date } = useFormatter()
@@ -210,6 +304,32 @@ const { currency, date } = useFormatter()
 const viewMode = ref<'grid' | 'list'>('grid')
 const showProductModal = ref(false)
 const selectedProductId = ref<number | null>(null)
+
+// Filter inputs
+const minPriceInput = ref<string>('')
+const maxPriceInput = ref<string>('')
+const stockFilter = ref<string>('')
+const statusFilter = ref<string>('')
+
+// Filter options
+const stockOptions = [
+  { value: '', label: 'Todos' },
+  { value: 'true', label: 'Em estoque' },
+  { value: 'false', label: 'Sem estoque' }
+]
+
+const statusOptions = [
+  { value: '', label: 'Todos' },
+  { value: 'true', label: 'Ativos' },
+  { value: 'false', label: 'Inativos' }
+]
+
+const sortOptions = [
+  { value: 'name', label: 'Nome' },
+  { value: 'price', label: 'Preço' },
+  { value: 'created_at', label: 'Data de criação' },
+  { value: 'updated_at', label: 'Última atualização' }
+]
 
 // Computed
 const formatCurrency = currency
@@ -224,6 +344,40 @@ const handleSearch = () => {
 
 const handleCategoryFilter = () => {
   filterByCategory(selectedCategory.value)
+}
+
+const handlePriceFilter = () => {
+  const min = minPriceInput.value ? parseFloat(minPriceInput.value) : undefined
+  const max = maxPriceInput.value ? parseFloat(maxPriceInput.value) : undefined
+  filterByPriceRange(min, max)
+}
+
+const handleStockFilter = () => {
+  const stockValue = stockFilter.value === '' ? undefined : stockFilter.value === 'true'
+  filterByStock(stockValue)
+}
+
+const handleStatusFilter = () => {
+  const statusValue = statusFilter.value === '' ? undefined : statusFilter.value === 'true'
+  showOnlyActive.value = statusValue
+  refresh()
+}
+
+const handleSort = () => {
+  sortProducts(sortBy.value, sortOrder.value)
+}
+
+const toggleSortOrder = () => {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  sortProducts(sortBy.value, sortOrder.value)
+}
+
+const clearAllFilters = () => {
+  minPriceInput.value = ''
+  maxPriceInput.value = ''
+  stockFilter.value = ''
+  statusFilter.value = ''
+  clearFilters()
 }
 
 const createNewProduct = () => {
@@ -276,15 +430,69 @@ const deleteProductConfirm = async (id: number) => {
   margin-bottom: var(--spacing-6);
 }
 
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-4);
+  
+  h3 {
+    margin: 0;
+    color: var(--primary-dark);
+    font-size: var(--font-size-lg);
+  }
+}
+
 .filters-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--spacing-4);
-  align-items: center;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.filter-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-1);
 }
 
 .search-input {
   min-width: 200px;
+}
+
+.price-range {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  
+  .price-input {
+    flex: 1;
+    min-width: 80px;
+  }
+  
+  .price-separator {
+    font-size: var(--font-size-sm);
+    color: var(--gray-500);
+    white-space: nowrap;
+  }
+}
+
+.sort-controls {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+  
+  .sort-order-btn {
+    min-width: 40px;
+    padding: var(--spacing-2);
+  }
 }
 
 .filter-actions {
@@ -497,9 +705,24 @@ const deleteProductConfirm = async (id: number) => {
     gap: var(--spacing-3);
   }
   
-  .filter-actions {
+  .filter-group {
+    width: 100%;
+  }
+  
+  .price-range {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--spacing-2);
+    
+    .price-separator {
+      text-align: center;
+    }
+  }
+  
+  .sort-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-2);
   }
   
   .view-toggle {

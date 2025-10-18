@@ -14,9 +14,30 @@ export class ProductsService {
   async list(filters: ProductFilters = {}): Promise<PaginatedResponse<Product>> {
     const params = new URLSearchParams()
     
+    // Search
     if (filters.search) params.append('search', filters.search)
+    
+    // Category filters
     if (filters.category_id) params.append('category_id', filters.category_id.toString())
+    if (filters.category_ids && filters.category_ids.length > 0) {
+      params.append('category_ids', filters.category_ids.join(','))
+    }
+    
+    // Price filters
+    if (filters.min_price !== undefined) params.append('min_price', filters.min_price.toString())
+    if (filters.max_price !== undefined) params.append('max_price', filters.max_price.toString())
+    
+    // Stock filters
+    if (filters.in_stock !== undefined) params.append('in_stock', filters.in_stock.toString())
+    
+    // Sorting
+    if (filters.sort_by) params.append('sort_by', filters.sort_by)
+    if (filters.sort_order) params.append('sort_order', filters.sort_order)
+    
+    // Status
     if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString())
+    
+    // Pagination
     if (filters.per_page) params.append('per_page', filters.per_page.toString())
     if (filters.page) params.append('page', filters.page.toString())
 

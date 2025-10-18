@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { customersService } from '@/services/api'
 import { useLoading } from '@/composables/useLoading'
 import { useNotifications } from '@/composables/useNotifications'
-import type { Customer, CreateCustomerRequest } from '@/types/api'
+import type { Customer, CreateCustomerRequest, CustomerFilters } from '@/types/api'
 
 export function useCustomers() {
   const notifications = useNotifications()
@@ -10,7 +10,15 @@ export function useCustomers() {
   
   // Search and filters
   const searchTerm = ref('')
-  const showOnlyActive = ref(true)
+  const showOnlyActive = ref<boolean | undefined>(undefined)
+  
+  // Pagination state
+  const currentPage = ref(1)
+  const perPage = ref(20)
+  const totalPages = ref(0)
+  const totalCustomers = ref(0)
+  const hasMorePages = ref(true)
+  const isLoadingMore = ref(false)
   
   // State
   const customers = ref<Customer[]>([])
@@ -23,18 +31,51 @@ export function useCustomers() {
   const isDeleting = computed(() => loading.isLoading.value)
   
   // Methods
-  const loadCustomers = async () => {
+  const loadCustomers = async (reset = true) => {
     try {
-      loading.setLoading(true)
+      if (reset) {
+        loading.setLoading(true)
+        currentPage.value = 1
+        customers.value = []
+      } else {
+        isLoadingMore.value = true
+      }
+      
       error.value = null
-      const response = await customersService.list()
-      customers.value = response.data
+      
+      const filters: CustomerFilters = {
+        search: searchTerm.value || undefined,
+        is_active: showOnlyActive.value,
+        per_page: perPage.value,
+        page: currentPage.value
+      }
+      
+      const response = await customersService.list(filters)
+      
+      if (reset) {
+        customers.value = response.data
+      } else {
+        customers.value.push(...response.data)
+      }
+      
+      totalPages.value = response.last_page
+      totalCustomers.value = response.total
+      hasMorePages.value = currentPage.value < response.last_page
+      
     } catch (err) {
       error.value = 'Erro ao carregar clientes'
       notifications.error('Erro ao carregar clientes')
     } finally {
       loading.setLoading(false)
+      isLoadingMore.value = false
     }
+  }
+  
+  const loadMoreCustomers = async () => {
+    if (!hasMorePages.value || isLoadingMore.value) return
+    
+    currentPage.value++
+    await loadCustomers(false)
   }
   
   const createCustomer = async (data: CreateCustomerRequest) => {
@@ -87,18 +128,22 @@ export function useCustomers() {
   // Filter methods
   const searchCustomers = (term: string) => {
     searchTerm.value = term
-    loadCustomers()
+    loadCustomers(true)
   }
   
   const toggleActiveFilter = () => {
-    showOnlyActive.value = !showOnlyActive.value
-    loadCustomers()
+    showOnlyActive.value = showOnlyActive.value === undefined ? true : undefined
+    loadCustomers(true)
   }
   
   const clearFilters = () => {
     searchTerm.value = ''
-    showOnlyActive.value = true
-    loadCustomers()
+    showOnlyActive.value = undefined
+    loadCustomers(true)
+  }
+  
+  const refreshCustomers = () => {
+    loadCustomers(true)
   }
   
   // Initialize
@@ -111,6 +156,14 @@ export function useCustomers() {
     showOnlyActive,
     error,
     
+    // Pagination state
+    currentPage,
+    perPage,
+    totalPages,
+    totalCustomers,
+    hasMorePages,
+    isLoadingMore,
+    
     // Loading states
     isLoading,
     isCreating,
@@ -119,11 +172,13 @@ export function useCustomers() {
     
     // Methods
     loadCustomers,
+    loadMoreCustomers,
     createCustomer,
     updateCustomer,
     deleteCustomer,
     searchCustomers,
     toggleActiveFilter,
-    clearFilters
+    clearFilters,
+    refreshCustomers
   }
 }

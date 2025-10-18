@@ -5,6 +5,9 @@
       <div class="header-content">
         <h1 class="page-title">Clientes</h1>
         <p class="page-description">Gerencie seus clientes</p>
+        <div class="customer-stats" v-if="totalCustomers > 0">
+          <span class="stats-text">{{ totalCustomers }} cliente{{ totalCustomers !== 1 ? 's' : '' }} encontrado{{ totalCustomers !== 1 ? 's' : '' }}</span>
+        </div>
       </div>
       <BaseButton 
         variant="primary" 
@@ -15,6 +18,54 @@
         Novo Cliente
       </BaseButton>
     </div>
+
+    <!-- Search and Filters -->
+    <BaseCard class="filters-card">
+      <div class="filters-header">
+        <h3>Filtros</h3>
+        <BaseButton 
+          variant="secondary" 
+          size="sm" 
+          @click="clearAllFilters"
+        >
+          Limpar Filtros
+        </BaseButton>
+      </div>
+      
+      <div class="filters-grid">
+        <!-- Search -->
+        <div class="filter-group">
+          <label class="filter-label">Buscar Clientes</label>
+          <BaseInput
+            v-model="searchTerm"
+            placeholder="Nome, email ou telefone..."
+            @input="handleSearch"
+            class="search-input"
+          />
+        </div>
+
+        <!-- Status Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Status</label>
+          <BaseSelect
+            v-model="statusFilter"
+            :options="statusOptions"
+            placeholder="Todos os status"
+            @change="handleStatusFilter"
+          />
+        </div>
+
+        <!-- Per Page -->
+        <div class="filter-group">
+          <label class="filter-label">Itens por página</label>
+          <BaseSelect
+            v-model="perPage"
+            :options="perPageOptions"
+            @change="handlePerPageChange"
+          />
+        </div>
+      </div>
+    </BaseCard>
 
     <!-- Loading State -->
     <BaseLoading 
@@ -30,7 +81,7 @@
         <div>
           <h3>Erro ao carregar clientes</h3>
           <p>{{ error }}</p>
-          <BaseButton @click="loadCustomers" variant="secondary">
+          <BaseButton @click="() => loadCustomers(true)" variant="secondary">
             Tentar novamente
           </BaseButton>
         </div>
@@ -38,7 +89,7 @@
     </BaseCard>
 
     <!-- Customers Grid -->
-    <div v-else class="customers-grid">
+    <div v-else class="customers-container">
       <!-- Empty State -->
       <div v-if="!customers || customers.length === 0" class="empty-state">
         <div class="empty-icon">👥</div>
@@ -55,13 +106,13 @@
       </div>
 
       <!-- Customers List -->
-      <BaseCard
-        v-else
-        v-for="customer in customers"
-        :key="customer.id"
-        class="customer-card"
-        :class="{ 'inactive': !customer.is_active }"
-      >
+      <div v-else class="customers-grid" ref="customersGrid">
+        <BaseCard
+          v-for="customer in customers"
+          :key="customer.id"
+          class="customer-card"
+          :class="{ 'inactive': !customer.is_active }"
+        >
         <div class="customer-header" v-if="customer && customer.id">
           <div class="customer-info">
             <h3 class="customer-name">{{ customer.name }}</h3>
@@ -101,7 +152,30 @@
             </BaseButton>
           </div>
         </div>
-      </BaseCard>
+        </BaseCard>
+      </div>
+
+      <!-- Load More Indicator -->
+      <div v-if="hasMorePages && customers.length > 0" class="load-more-container">
+        <BaseButton
+          v-if="!isLoadingMore"
+          variant="secondary"
+          @click="loadMoreCustomers"
+          class="load-more-btn"
+        >
+          <span class="btn-icon">⬇️</span>
+          Carregar Mais
+        </BaseButton>
+        <div v-else class="loading-more">
+          <div class="loading-spinner"></div>
+          <span>Carregando mais clientes...</span>
+        </div>
+      </div>
+
+      <!-- End of Results -->
+      <div v-if="!hasMorePages && customers.length > 0" class="end-of-results">
+        <span>Você viu todos os {{ totalCustomers }} cliente{{ totalCustomers !== 1 ? 's' : '' }}</span>
+      </div>
     </div>
 
     <!-- Customer Modal -->
@@ -137,6 +211,8 @@
 import { ref, computed, onMounted } from 'vue'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
+import BaseInput from '@/components/Base/Input.vue'
+import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import BaseModal from '@/components/Base/Modal.vue'
 import CustomerModal from '../components/Modals/CustomerModal.vue'
@@ -156,15 +232,24 @@ const isAdmin = computed(() => userRole === 'admin' || userRole === 'tenant_owne
 // Composables
 const {
   customers,
+  searchTerm,
+  showOnlyActive,
   error,
+  perPage,
+  totalCustomers,
+  hasMorePages,
+  isLoadingMore,
   isLoading,
   isCreating,
   isUpdating,
   isDeleting,
   loadCustomers,
-  // createCustomer,
+  loadMoreCustomers,
   updateCustomer,
-  deleteCustomer: deleteCustomerApi
+  deleteCustomer: deleteCustomerApi,
+  searchCustomers,
+  clearFilters,
+  refreshCustomers
 } = useCustomers()
 
 // const notifications = useNotifications()
@@ -175,10 +260,49 @@ const showDeleteModal = ref(false)
 const selectedCustomer = ref<Customer | null>(null)
 const customerToDelete = ref<Customer | null>(null)
 
+// Filter state
+const statusFilter = ref<string>('')
+const customersGrid = ref<HTMLElement | null>(null)
+
+// Filter options
+const statusOptions = [
+  { value: '', label: 'Todos' },
+  { value: 'true', label: 'Ativos' },
+  { value: 'false', label: 'Inativos' }
+]
+
+const perPageOptions = [
+  { value: 10, label: '10 por página' },
+  { value: 20, label: '20 por página' },
+  { value: 50, label: '50 por página' },
+  { value: 100, label: '100 por página' }
+]
+
 // Methods
 const createNewCustomer = () => {
   selectedCustomer.value = null
   showCustomerModal.value = true
+}
+
+// Filter methods
+const handleSearch = () => {
+  searchCustomers(searchTerm.value)
+}
+
+const handleStatusFilter = () => {
+  const statusValue = statusFilter.value === '' ? undefined : statusFilter.value === 'true'
+  showOnlyActive.value = statusValue
+  refreshCustomers()
+}
+
+const handlePerPageChange = () => {
+  refreshCustomers()
+}
+
+const clearAllFilters = () => {
+  searchTerm.value = ''
+  statusFilter.value = ''
+  clearFilters()
 }
 
 const editCustomer = (customer: Customer) => {
@@ -290,10 +414,106 @@ onMounted(() => {
   }
 }
 
-.customers-grid {
+.customers-container {
+  .customers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--spacing-6);
+  }
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin: var(--spacing-8) 0;
+  
+  .load-more-btn {
+    min-width: 200px;
+  }
+  
+  .loading-more {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    color: var(--gray-600);
+    font-size: var(--font-size-sm);
+    
+    .loading-spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--gray-300);
+      border-top: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+.end-of-results {
+  text-align: center;
+  margin: var(--spacing-8) 0;
+  padding: var(--spacing-4);
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Filters styles
+.filters-card {
+  margin-bottom: var(--spacing-6);
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-4);
+  
+  h3 {
+    margin: 0;
+    color: var(--primary-dark);
+    font-size: var(--font-size-lg);
+  }
+}
+
+.filters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: var(--spacing-6);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.filter-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-1);
+}
+
+.search-input {
+  min-width: 200px;
+}
+
+.customer-stats {
+  .stats-text {
+    font-size: var(--font-size-sm);
+    color: var(--gray-500);
+    background: var(--gray-100);
+    padding: var(--spacing-1) var(--spacing-3);
+    border-radius: var(--radius-md);
+  }
 }
 
 .customer-card {

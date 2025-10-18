@@ -301,9 +301,28 @@ export interface ApiError {
 
 // Filter Types
 export interface ProductFilters {
+  // Search
   search?: string
+  
+  // Category filters
   category_id?: number
+  category_ids?: number[]
+  
+  // Price filters
+  min_price?: number
+  max_price?: number
+  
+  // Stock filters
+  in_stock?: boolean
+  
+  // Sorting
+  sort_by?: 'name' | 'price' | 'created_at' | 'updated_at'
+  sort_order?: 'asc' | 'desc'
+  
+  // Status
   is_active?: boolean
+  
+  // Pagination
   per_page?: number
   page?: number
 }
