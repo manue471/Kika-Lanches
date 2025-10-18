@@ -184,7 +184,13 @@ export interface Customer {
   name: string
   email?: string
   phone?: string
-  preferences?: Record<string, any>
+  preferences?: {
+    class_info?: string
+    guardian?: string
+    guardian_phone?: string
+    notes?: string
+    [key: string]: any
+  }
   is_active: boolean
   created_at?: string
   updated_at?: string

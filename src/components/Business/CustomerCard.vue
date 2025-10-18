@@ -53,12 +53,10 @@ interface Customer {
   name: string
   phone?: string
   preferences?: {
-    class_info?: {
-      class?: string
-      guardian?: string
-      guardian_phone?: string
-      notes?: string
-    }
+    class_info?: string
+    guardian?: string
+    guardian_phone?: string
+    notes?: string
   }
 }
 
@@ -77,15 +75,15 @@ defineEmits<{
 const { phone } = useFormatter()
 
 const customerClass = computed(() => {
-  return props.customer.preferences?.class_info?.class || ''
+  return props.customer.preferences?.class_info || ''
 })
 
 const customerGuardian = computed(() => {
-  return props.customer.preferences?.class_info?.guardian || ''
+  return props.customer.preferences?.guardian || ''
 })
 
 const customerGuardianPhone = computed(() => {
-  return props.customer.preferences?.class_info?.guardian_phone || ''
+  return props.customer.preferences?.guardian_phone || ''
 })
 
 const formattedPhone = computed(() => {

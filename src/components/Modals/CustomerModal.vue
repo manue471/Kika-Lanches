@@ -244,12 +244,11 @@ watch(() => props.show, (show) => {
       }
       
       // Load class_info from preferences
-      const classInfoData = props.customer.preferences?.class_info || {}
       classInfo.value = {
-        class: classInfoData.class || '',
-        guardian: classInfoData.guardian || '',
-        guardian_phone: classInfoData.guardian_phone || '',
-        notes: classInfoData.notes || ''
+        class: props.customer.preferences?.class_info || '',
+        guardian: props.customer.preferences?.guardian || '',
+        guardian_phone: props.customer.preferences?.guardian_phone || '',
+        notes: props.customer.preferences?.notes || ''
       }
     }
   } else {
@@ -282,14 +281,12 @@ const handleSubmit = async () => {
   if (!validateForm()) return
 
   try {
-    // Build preferences with class_info structure
+    // Build preferences with individual fields
     form.value.preferences = {
-      class_info: {
-        class: classInfo.value.class,
-        guardian: classInfo.value.guardian,
-        guardian_phone: classInfo.value.guardian_phone,
-        notes: classInfo.value.notes
-      }
+      class_info: classInfo.value.class,
+      guardian: classInfo.value.guardian,
+      guardian_phone: classInfo.value.guardian_phone,
+      notes: classInfo.value.notes
     }
 
     let result: Customer | null = null
