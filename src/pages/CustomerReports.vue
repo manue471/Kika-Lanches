@@ -8,9 +8,31 @@
       </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Search and Filters -->
     <BaseCard class="filters-card">
+      <div class="filters-header">
+        <h3>Filtros</h3>
+        <BaseButton 
+          variant="secondary" 
+          size="sm" 
+          @click="clearAllFilters"
+        >
+          Limpar Filtros
+        </BaseButton>
+      </div>
+      
       <div class="filters-content">
+        <!-- Search -->
+        <div class="filter-group">
+          <label class="filter-label">Buscar Clientes</label>
+          <BaseInput
+            v-model="searchTerm"
+            placeholder="Nome, email ou telefone..."
+            @input="handleSearch"
+            class="search-input"
+          />
+        </div>
+        
         <div class="filter-group">
           <label class="filter-label">Período</label>
           <BaseSelect
@@ -83,6 +105,11 @@
 
     <!-- Customers List -->
     <div v-else class="customers-list">
+      <!-- Stats -->
+      <div v-if="totalCustomers > 0" class="customer-stats">
+        <span class="stats-text">{{ totalCustomers }} cliente{{ totalCustomers !== 1 ? 's' : '' }} encontrado{{ totalCustomers !== 1 ? 's' : '' }}</span>
+      </div>
+
       <!-- Empty State -->
       <div v-if="!customers || customers.length === 0" class="empty-state">
         <div class="empty-icon">👥</div>
@@ -120,6 +147,18 @@
           </div>
         </BaseCard>
       </div>
+
+      <!-- Load More Button -->
+      <div v-if="hasMorePages && customers.length > 0" class="load-more-container">
+        <BaseButton
+          @click="loadMoreCustomers"
+          variant="secondary"
+          :loading="isLoadingMore"
+          class="load-more-btn"
+        >
+          {{ isLoadingMore ? 'Carregando...' : 'Carregar Mais' }}
+        </BaseButton>
+      </div>
     </div>
 
     <!-- Customer Report Modal -->
@@ -136,8 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useCustomers } from '@/composables/useCustomers'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useCustomerReports } from '@/composables/useCustomerReports'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
@@ -148,8 +186,12 @@ import CustomerReportModal from '@/components/Reports/CustomerReportModal.vue'
 import type { Customer } from '@/types/api'
 
 // Composables
-const { customers, error, isLoading, loadCustomers } = useCustomers()
 const { 
+  customers,
+  searchTerm,
+  totalCustomers,
+  hasMorePages,
+  isLoadingMore,
   customerReport, 
   selectedPeriod, 
   selectedStatus, 
@@ -159,6 +201,9 @@ const {
   statusOptions,
   paymentMethodOptions,
   getCustomerReport,
+  loadCustomers,
+  loadMoreCustomers,
+  searchCustomers,
   isLoading: isLoadingReport,
   error: reportError
 } = useCustomerReports()
@@ -166,6 +211,7 @@ const {
 // State
 const showReportModal = ref(false)
 const selectedCustomer = ref<Customer | null>(null)
+let searchTimeout: NodeJS.Timeout | null = null
 
 // Computed
 const currentFilters = computed(() => ({
@@ -175,6 +221,8 @@ const currentFilters = computed(() => ({
   from_date: undefined, // Add date filters if needed
   to_date: undefined
 }))
+
+const isLoading = computed(() => isLoadingReport.value)
 
 // Methods
 const openCustomerReport = async (customer: Customer) => {
@@ -195,9 +243,35 @@ const applyFilters = () => {
   }
 }
 
+// Search methods
+const handleSearch = () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  
+  searchTimeout = setTimeout(() => {
+    searchCustomers(searchTerm.value)
+  }, 500) // 500ms debounce
+}
+
+const clearAllFilters = () => {
+  searchTerm.value = ''
+  selectedPeriod.value = 'last_month'
+  selectedStatus.value = ''
+  selectedLimit.value = 10
+  selectedPaymentMethod.value = ''
+  loadCustomers(true)
+}
+
 // Lifecycle
 onMounted(() => {
   loadCustomers()
+})
+
+onUnmounted(() => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
 })
 </script>
 
@@ -231,6 +305,18 @@ onMounted(() => {
 
 .filters-card {
   margin-bottom: var(--spacing-6);
+  
+  .filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-4);
+    
+    h3 {
+      margin: 0;
+      color: var(--color-text-primary);
+    }
+  }
   
   .filters-content {
     display: grid;
@@ -299,10 +385,30 @@ onMounted(() => {
   }
 }
 
+.customer-stats {
+  margin-bottom: var(--spacing-4);
+  text-align: center;
+  
+  .stats-text {
+    color: var(--gray-600);
+    font-size: var(--font-size-sm);
+  }
+}
+
 .customers-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: var(--spacing-4);
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-6);
+  
+  .load-more-btn {
+    min-width: 200px;
+  }
 }
 
 .customer-card {
