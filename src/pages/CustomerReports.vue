@@ -96,7 +96,7 @@
         <div>
           <h3>Erro ao carregar clientes</h3>
           <p>{{ error }}</p>
-          <BaseButton @click="() => loadCustomers(true)" variant="secondary">
+          <BaseButton @click="() => loadCustomersWithErrorHandling(true)" variant="secondary">
             Tentar novamente
           </BaseButton>
         </div>
@@ -208,10 +208,13 @@ const {
   error: reportError
 } = useCustomerReports()
 
+// Local error state for customers list
+const error = ref<string | null>(null)
+
 // State
 const showReportModal = ref(false)
 const selectedCustomer = ref<Customer | null>(null)
-let searchTimeout: NodeJS.Timeout | null = null
+let searchTimeout: number | null = null
 
 // Computed
 const currentFilters = computed(() => ({
@@ -254,18 +257,28 @@ const handleSearch = () => {
   }, 500) // 500ms debounce
 }
 
+// Override loadCustomers to handle local error state
+const loadCustomersWithErrorHandling = async (reset = true) => {
+  try {
+    error.value = null
+    await loadCustomers(reset)
+  } catch (err) {
+    error.value = 'Erro ao carregar clientes'
+  }
+}
+
 const clearAllFilters = () => {
   searchTerm.value = ''
   selectedPeriod.value = 'last_month'
   selectedStatus.value = ''
   selectedLimit.value = 10
   selectedPaymentMethod.value = ''
-  loadCustomers(true)
+  loadCustomersWithErrorHandling(true)
 }
 
 // Lifecycle
 onMounted(() => {
-  loadCustomers()
+  loadCustomersWithErrorHandling()
 })
 
 onUnmounted(() => {
