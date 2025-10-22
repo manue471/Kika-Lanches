@@ -222,6 +222,26 @@ export class OrdersService {
   }
 
   /**
+   * Get order ticket PDF (view in browser)
+   */
+  async getTicketPDF(id: number): Promise<Blob> {
+    const response = await apiClient.getRaw(`/orders/${id}/ticket/pdf`, {
+      responseType: 'blob'
+    })
+    return response.data
+  }
+
+  /**
+   * Download order ticket PDF
+   */
+  async downloadTicketPDF(id: number): Promise<Blob> {
+    const response = await apiClient.getRaw(`/orders/${id}/ticket/pdf?download=true`, {
+      responseType: 'blob'
+    })
+    return response.data
+  }
+
+  /**
    * Print order ticket
    */
   async printTicket(id: number): Promise<{ message: string }> {

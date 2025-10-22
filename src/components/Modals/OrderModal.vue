@@ -894,6 +894,8 @@ const handleStockCancel = () => {
 
 .modal-actions-left {
   display: flex;
+  justify-content: flex-start;
+  margin-right: 12px;
   gap: var(--spacing-3);
 }
 

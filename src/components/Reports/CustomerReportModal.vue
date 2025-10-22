@@ -135,7 +135,7 @@
                   :key="product.id"
                   class="product-item"
                 >
-                  <span class="product-name">{{ product.name }} - Qtd: {{ product.quantity }} - {{ formatCurrency(product.price) }}</span>
+                  <span class="product-name">{{ product.name }} - Qtd: {{ product.quantity }} - {{ formatCurrency((product as any).unit_price) }}</span>
                 </div>
               </div>
             </div>
@@ -248,7 +248,7 @@
                           :key="product.id"
                           class="product-item"
                         >
-                          <span class="product-name">{{ product.name }} - Qtd: {{ product.quantity }} - {{ formatCurrency(product.price) }}</span>
+                          <span class="product-name">{{ product.name }} - Qtd: {{ product.quantity }} - {{ formatCurrency((product as any).unit_price) }}</span>
                         </div>
                       </div>
                   </div>
@@ -262,30 +262,33 @@
 
     <template #footer>
       <div class="modal-actions">
-        <BaseButton
-          variant="info"
-          @click="showTicketModal"
-        >
-          <span class="print-icon">🖨️</span>
-          Imprimir Ticket
-        </BaseButton>
-        <BaseButton
-          variant="secondary"
-          @click="$emit('update:show', false)"
-        >
-          Fechar
-        </BaseButton>
+        <div class="modal-actions-left">
+          <BaseButton
+            variant="info"
+            @click="showPDFModal"
+          >
+            <span class="pdf-icon">📄</span>
+            Gerar Relatório PDF
+          </BaseButton>
+        </div>
+        <div class="modal-actions-right">
+          <BaseButton
+            variant="secondary"
+            @click="$emit('update:show', false)"
+          >
+            Fechar
+          </BaseButton>
+        </div>
       </div>
     </template>
   </BaseModal>
 
-  <!-- Customer Ticket Modal -->
-  <CustomerTicketModal
-    :show="showCustomerTicketModal"
+  <!-- Customer PDF Modal -->
+  <CustomerReportPDFModal
+    :show="showCustomerPDFModal"
     :customer-id="customerId"
-    :customer-info="customerInfo"
-    :options="ticketOptions"
-    @update:show="handleTicketClose"
+    :options="pdfOptions"
+    @update:show="handlePDFClose"
   />
 </template>
 
@@ -300,7 +303,7 @@ import BaseLoading from '@/components/Base/Loading.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import StatusBadge from '@/components/Business/StatusBadge.vue'
-import CustomerTicketModal from '@/components/Modals/CustomerTicketModal.vue'
+import CustomerReportPDFModal from '@/components/Modals/CustomerReportPDFModal.vue'
 import type { CustomerReportResponse, BulkUpdateRequest } from '@/types/api'
 
 interface Props {
@@ -337,8 +340,8 @@ const selectedOrders = ref<number[]>([])
 const bulkNotes = ref<string>('')
 const isUpdating = computed(() => loading.isLoading.value)
 
-// Ticket modal state
-const showCustomerTicketModal = ref(false)
+// PDF modal state
+const showCustomerPDFModal = ref(false)
 
 // Select all logic
 const isAllSelected = computed(() => {
@@ -386,23 +389,13 @@ const getPaymentIcon = (paymentMethod: string) => {
   return icons[paymentMethod] || '💰'
 }
 
-// Ticket modal computed properties and functions
+// PDF modal computed properties
 const customerId = computed(() => props.customerReport?.customer?.id || null)
 
-const customerInfo = computed(() => {
-  if (!props.customerReport?.customer) return null
-  return {
-    id: props.customerReport.customer.id,
-    name: props.customerReport.customer.name,
-    phone: props.customerReport.customer.phone,
-    class: (props.customerReport.customer as any).class // Type assertion for optional class property
-  }
-})
-
-const ticketOptions = computed(() => {
+const pdfOptions = computed(() => {
   // Use the same filters that are used for the report
   return {
-    limit: 10, // Default limit for tickets
+    limit: 10, // Default limit for PDF
     status: props.filters?.status,
     payment_method: props.filters?.payment_method,
     from_date: props.filters?.from_date,
@@ -411,13 +404,14 @@ const ticketOptions = computed(() => {
   }
 })
 
-const showTicketModal = () => {
-  showCustomerTicketModal.value = true
+const showPDFModal = () => {
+  showCustomerPDFModal.value = true
 }
 
-const handleTicketClose = () => {
-  showCustomerTicketModal.value = false
+const handlePDFClose = () => {
+  showCustomerPDFModal.value = false
 }
+
 
 const getPaymentLabel = (paymentMethod: string) => {
   const labels: Record<string, string> = {
@@ -1056,9 +1050,21 @@ const markAsPaid = async () => {
   align-items: center;
   padding-top: var(--spacing-4);
   border-top: 1px solid var(--gray-200);
+  gap: var(--spacing-4);
 }
 
-.print-icon {
+.modal-actions-left {
+  display: flex;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+.modal-actions-right {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+.pdf-icon {
   margin-right: var(--spacing-2);
 }
 
@@ -1136,6 +1142,23 @@ const markAsPaid = async () => {
   .modal-actions {
     flex-direction: column;
     gap: var(--spacing-3);
+  }
+  
+  .modal-actions-left {
+    flex-direction: column;
+    width: 100%;
+    
+    > * {
+      width: 100%;
+    }
+  }
+  
+  .modal-actions-right {
+    width: 100%;
+    
+    > * {
+      width: 100%;
+    }
   }
 }
 </style>
