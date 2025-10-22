@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
