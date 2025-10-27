@@ -26,28 +26,39 @@
           <p>Escolha como deseja visualizar o relatório do cliente:</p>
         </div>
         
-        <div class="pdf-actions-buttons">
-          <BaseButton
-            variant="info"
-            size="lg"
-            @click="viewPDF"
-            :loading="isLoadingPDF"
-            class="pdf-action-btn"
-          >
-            <span class="pdf-icon">📄</span>
-            Ver PDF no Navegador
-          </BaseButton>
-          <BaseButton
-            variant="secondary"
-            size="lg"
-            @click="downloadPDF"
-            :loading="isDownloading"
-            class="pdf-action-btn"
-          >
-            <span class="download-icon">⬇️</span>
-            Baixar PDF
-          </BaseButton>
-        </div>
+                <div class="pdf-actions-buttons">
+                  <BaseButton
+                    variant="info"
+                    size="lg"
+                    @click="viewPDF"
+                    :loading="isLoadingPDF"
+                    class="pdf-action-btn"
+                  >
+                    <span class="pdf-icon">📄</span>
+                    Ver PDF no Navegador
+                  </BaseButton>
+                  <BaseButton
+                    variant="secondary"
+                    size="lg"
+                    @click="downloadPDF"
+                    :loading="isDownloading"
+                    class="pdf-action-btn"
+                  >
+                    <span class="download-icon">⬇️</span>
+                    Baixar PDF
+                  </BaseButton>
+                  <BaseButton
+                    v-if="isShareSupported"
+                    variant="success"
+                    size="lg"
+                    @click="sharePDF"
+                    :loading="isSharing"
+                    class="pdf-action-btn"
+                  >
+                    <span class="share-icon">📤</span>
+                    Compartilhar
+                  </BaseButton>
+                </div>
         
         <div class="pdf-actions-footer">
           <BaseButton
@@ -69,6 +80,7 @@ import BaseButton from '@/components/Base/Button.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import { reportsService } from '@/services/api'
 import { useNotifications } from '@/composables/useNotifications'
+import { useWebShare } from '@/composables/useWebShare'
 
 interface Props {
   show: boolean
@@ -90,6 +102,7 @@ const emit = defineEmits<{
 }>()
 
 const { showNotification } = useNotifications()
+const { shareFile, isSupported: isShareSupported, isSharing } = useWebShare()
 
 // State
 const isLoading = ref(false)
@@ -154,6 +167,26 @@ const downloadPDF = async () => {
     console.error('Error downloading PDF:', err)
   } finally {
     isDownloading.value = false
+  }
+}
+
+const sharePDF = async () => {
+  if (!props.customerId) return
+
+  try {
+    const pdfBlob = await reportsService.getCustomerReportPDF(props.customerId, props.options)
+    const filename = `relatorio-cliente-${props.customerId}.pdf`
+    
+    await shareFile(
+      pdfBlob,
+      filename,
+      `Relatório do Cliente #${props.customerId}`,
+      `Relatório detalhado do cliente ${props.customerId}`
+    )
+  } catch (err) {
+    error.value = 'Erro ao compartilhar PDF do relatório'
+    showNotification('Erro ao compartilhar PDF', 'error')
+    console.error('Error sharing PDF:', err)
   }
 }
 
