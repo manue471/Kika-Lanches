@@ -11,13 +11,23 @@
         <h3 class="section-title">Cliente</h3>
         <div class="form-group">
           <label for="customer" class="form-label">Selecionar Cliente *</label>
-          <BaseSelect
+          <AutoComplete
             id="customer"
-            v-model="form.customer_id"
-            :options="customerOptions"
-            placeholder="Selecione um cliente"
+            v-model="selectedCustomer"
+            :options="customerSearchResults"
+            :search-term="customerSearchTerm"
+            :is-loading="isCustomerSearching"
+            placeholder="Digite o nome do cliente..."
+            label-key="name"
+            value-key="id"
+            secondary-key="email"
+            :min-search-length="2"
+            :debounce-ms="300"
+            @search="searchCustomers"
+            @select="handleCustomerSelect"
+            @clear="handleCustomerClear"
             :error="errors.customer_id"
-            required
+            class="customer-autocomplete"
           />
         </div>
       </div>
@@ -221,13 +231,14 @@
 import { ref, computed, watch } from 'vue'
 import { useOrders } from '@/composables/useOrders'
 import { useProducts } from '@/composables/useProducts'
-import { useCustomers } from '@/composables/useCustomers'
+import { useCustomerSearch } from '@/composables/useCustomerSearch'
 import { useFormatter } from '@/composables/useUtils'
 import { useNotifications } from '@/composables/useNotifications'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseButton from '@/components/Base/Button.vue'
+import AutoComplete from '@/components/Base/AutoComplete.vue'
 import ConfirmModal from '@/components/Base/ConfirmModal.vue'
 import TicketModal from './TicketModal.vue'
 import type { Order } from '@/types/api'
@@ -246,7 +257,15 @@ const emit = defineEmits<{
 
 const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, refresh } = useOrders()
 const { products, loadProducts } = useProducts()
-const { customers, loadCustomers } = useCustomers()
+const { 
+  searchResults: customerSearchResults,
+  searchTerm: customerSearchTerm,
+  selectedCustomer,
+  isSearching: isCustomerSearching,
+  searchCustomers,
+  selectCustomer,
+  clearSelection: clearCustomerSelection
+} = useCustomerSearch()
 const { currency } = useFormatter()
 const { showNotification } = useNotifications()
 
@@ -288,13 +307,6 @@ console.log('Initial stock confirm state:', showStockConfirm.value)
 
 // Computed
 const formatCurrency = currency
-
-const customerOptions = computed(() => 
-  customers.value.map(customer => ({
-    value: customer.id,
-    label: customer.name
-  }))
-)
 
 const productOptions = computed(() => 
   products.value.map(product => ({
@@ -421,16 +433,14 @@ const resetForm = () => {
     notes: ''
   }
   errors.value = {}
+  clearCustomerSelection()
 }
 
 // Watch for modal show/hide
 watch(() => props.show, async (show) => {
   if (show) {
-    // Load customers and products when modal opens
-    await Promise.all([
-      loadCustomers(),
-      loadProducts()
-    ])
+    // Load products when modal opens
+    await loadProducts()
     
     // If opening with an orderId, load the order data
     if (props.orderId) {
@@ -454,6 +464,11 @@ watch(() => props.show, async (show) => {
           tax_amount: order.tax_amount || 0,
           notes: order.notes || ''
         }
+        
+        // Set selected customer for autocomplete
+        if (order.customer) {
+          selectCustomer(order.customer)
+        }
       } catch (error) {
         console.error('Error fetching order:', error)
         resetForm()
@@ -465,6 +480,17 @@ watch(() => props.show, async (show) => {
     originalOrder.value = null
   }
 })
+
+// Customer selection methods
+const handleCustomerSelect = (customer: any) => {
+  form.value.customer_id = customer.id
+  selectCustomer(customer)
+}
+
+const handleCustomerClear = () => {
+  form.value.customer_id = 0
+  clearCustomerSelection()
+}
 
 const addProduct = () => {
   form.value.products.push({
@@ -709,7 +735,11 @@ const handleStockCancel = () => {
 
 <style lang="scss" scoped>
 .order-form {
-  .form-section {
+  .customer-autocomplete {
+  width: 100%;
+}
+
+.form-section {
     margin-bottom: var(--spacing-6);
     
     .section-title {
