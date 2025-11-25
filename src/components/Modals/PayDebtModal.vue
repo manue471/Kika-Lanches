@@ -107,11 +107,17 @@ import BaseInput from '@/components/Base/Input.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import { useCustomerDebts } from '@/composables/useCustomerDebts'
 import { useFormatter } from '@/composables/useUtils'
-import type { Customer } from '@/types/api'
+// Partial customer type (only what we need for this modal)
+interface CustomerBasic {
+  id: number
+  name: string
+  phone?: string
+  balance?: number
+}
 
 interface Props {
   show: boolean
-  customer: Customer | null
+  customer: CustomerBasic | null
 }
 
 const props = defineProps<Props>()
