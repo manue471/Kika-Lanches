@@ -65,7 +65,7 @@
                   class="stock-quantity"
                   :class="getStockClass(item.product_id)"
                 >
-                  {{ getStockInfo(item.product_id)?.quantity || 0 }}
+                  {{ getStockQuantity(item.product_id) }}
                 </span>
               </div>
             </div>
@@ -109,7 +109,7 @@
           </div>
           
           <div class="form-group">
-            <label for="payment_method" class="form-label">Método de Pagamento</label>
+            <label for="payment_method" class="form-label">Método de Pagamento Principal</label>
             <BaseSelect
               id="payment_method"
               v-model="form.payment_method"
@@ -118,6 +118,61 @@
               :error="errors.payment_method"
               required
             />
+          </div>
+        </div>
+
+        <!-- Partial Payment Section -->
+        <div class="form-section" v-if="enablePartialPayment">
+          <h3 class="section-title">Pagamento Parcial</h3>
+          <div class="partial-payment-info">
+            <p class="info-text">
+              Você pode registrar um pagamento parcial. O valor restante será adicionado ao débito do cliente.
+            </p>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="paid_amount" class="form-label">Valor Pago (R$)</label>
+              <BaseInput
+                id="paid_amount"
+                v-model.number="form.paid_amount"
+                type="number"
+                :min="0"
+                :max="total"
+                step="0.01"
+                placeholder="0.00"
+                :error="errors.paid_amount"
+              />
+              <small class="form-hint">Valor pago à vista neste pedido</small>
+            </div>
+            <div class="form-group">
+              <label for="debt_amount" class="form-label">Valor à Prazo (R$)</label>
+              <BaseInput
+                id="debt_amount"
+                v-model.number="form.debt_amount"
+                type="number"
+                :min="0"
+                :readonly="true"
+                placeholder="0.00"
+                step="0.01"
+                class="readonly-input"
+              />
+              <small class="form-hint">Valor que será adicionado ao débito</small>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Métodos de Pagamento Utilizados</label>
+            <div class="payment-methods-checkboxes">
+              <label v-for="method in paymentMethodOptions" :key="method.value" class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :value="method.value"
+                  v-model="form.payment_methods"
+                  class="checkbox-input"
+                />
+                <span>{{ method.label }}</span>
+              </label>
+            </div>
+            <small class="form-hint">Selecione todos os métodos de pagamento utilizados neste pedido</small>
           </div>
         </div>
         
@@ -150,6 +205,14 @@
         <div class="summary-item total">
           <span class="summary-label">Total:</span>
           <span class="summary-value">{{ formatCurrency(total) }}</span>
+        </div>
+        <div class="summary-item" v-if="form.paid_amount && form.paid_amount > 0">
+          <span class="summary-label">Valor Pago:</span>
+          <span class="summary-value paid">{{ formatCurrency(form.paid_amount) }}</span>
+        </div>
+        <div class="summary-item" v-if="calculatedDebtAmount > 0">
+          <span class="summary-label">Valor à Prazo:</span>
+          <span class="summary-value debt">{{ formatCurrency(calculatedDebtAmount) }}</span>
         </div>
       </div>
     </form>
@@ -277,6 +340,9 @@ const form = ref({
   ],
   status: 'confirmed' as Order['status'],
   payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
+  paid_amount: undefined as number | undefined,
+  debt_amount: undefined as number | undefined,
+  payment_methods: [] as string[],
   shipping_amount: 0,
   tax_amount: 0,
   notes: ''
@@ -328,13 +394,47 @@ const paymentMethodOptions = [
   { value: 'a_prazo', label: 'À Prazo' }
 ]
 
-// Stock validation methods
-const getStockInfo = (productId: number) => {
-  const product = products.value.find(p => p.id === productId)
-  return product?.stock
+// Stock validation methods (moved before computed to avoid dependency issues)
+const getStockInfo = (productId: number | string) => {
+  if (!productId || productId === 0 || productId === '0') return null
+  const productIdNum = Number(productId)
+  if (isNaN(productIdNum)) return null
+  
+  // Find product by ID, ensuring type conversion
+  const product = products.value.find(p => {
+    const pId = typeof p.id === 'string' ? Number(p.id) : p.id
+    return pId === productIdNum
+  })
+  
+  return product?.stock || null
 }
 
-const getMaxQuantity = (productId: number): number => {
+// Helper to get stock quantity - ensures we get the correct value from stock.quantity
+const getStockQuantity = (productId: number | string): number => {
+  if (!productId || productId === 0 || productId === '0') return 0
+  
+  const stock = getStockInfo(productId)
+  if (!stock) {
+    // Debug: log when stock is not found
+    if (productId) {
+      console.debug('Stock not found for product_id:', productId, 'Available products:', products.value.map(p => ({ id: p.id, name: p.name })))
+    }
+    return 0
+  }
+  
+  // Handle both number and string quantities from API
+  let quantity = stock.quantity
+  if (typeof quantity === 'string') {
+    quantity = parseFloat(quantity) || 0
+  }
+  if (typeof quantity !== 'number' || isNaN(quantity)) {
+    quantity = 0
+  }
+  
+  return quantity
+}
+
+const getMaxQuantity = (productId: number | string): number => {
   const stock = getStockInfo(productId)
   if (!stock) return 999
   
@@ -342,33 +442,38 @@ const getMaxQuantity = (productId: number): number => {
   if (stock.allow_backorder) return 999
   
   // Otherwise, limit to available stock
-  return stock.quantity
+  return stock.quantity ?? 0
 }
 
-const getStockError = (productId: number, quantity: number): string => {
+const getStockError = (productId: number | string, quantity: number): string => {
   const stock = getStockInfo(productId)
   if (!stock) return ''
   
   // If backorder is allowed, no error
   if (stock.allow_backorder) return ''
   
+  const stockQuantity = stock.quantity ?? 0
+  
   // Check if quantity exceeds available stock
-  if (quantity > stock.quantity) {
-    return `Estoque insuficiente. Disponível: ${stock.quantity} unidades`
+  if (quantity > stockQuantity) {
+    return `Estoque insuficiente. Disponível: ${stockQuantity} unidades`
   }
   
   return ''
 }
 
-const getStockClass = (productId: number): string => {
+const getStockClass = (productId: number | string): string => {
   const stock = getStockInfo(productId)
   if (!stock) return ''
   
-  if (stock.quantity === 0) return 'stock-empty'
-  if (stock.quantity <= stock.min_stock_level) return 'stock-low'
+  const stockQuantity = stock.quantity ?? 0
+  
+  if (stockQuantity === 0) return 'stock-empty'
+  if (stock.min_stock_level && stockQuantity <= stock.min_stock_level) return 'stock-low'
   return 'stock-ok'
 }
 
+// Computed properties for totals (must be defined before watchers that use them)
 const subtotal = computed(() => {
   const subtotalValue = form.value.products.reduce((total, item) => {
     const product = products.value.find(p => p.id === Number(item.product_id))
@@ -407,6 +512,78 @@ const total = computed(() => {
   return totalValue
 })
 
+// Enable partial payment when payment method is not fully "a_prazo"
+const enablePartialPayment = computed(() => {
+  return form.value.payment_method !== 'a_prazo'
+})
+
+// Helper function to round monetary values to 2 decimal places
+const roundCurrency = (value: number): number => {
+  if (isNaN(value) || !isFinite(value)) return 0
+  return Math.round(value * 100) / 100
+}
+
+// Calculated debt amount
+const calculatedDebtAmount = computed(() => {
+  const totalValue = total.value
+  const paidValue = form.value.paid_amount || 0
+  
+  if (form.value.payment_method === 'a_prazo') {
+    // Fully on credit, all is debt
+    return roundCurrency(totalValue)
+  }
+  
+  if (paidValue >= totalValue) {
+    // Fully paid
+    return 0
+  }
+  
+  // Partial payment - round to avoid floating point precision issues
+  const debt = totalValue - paidValue
+  return Math.max(0, roundCurrency(debt))
+})
+
+// Watch calculatedDebtAmount to sync with form.debt_amount
+watch(() => calculatedDebtAmount.value, (newDebt) => {
+  form.value.debt_amount = roundCurrency(newDebt)
+}, { immediate: true })
+
+// Watch paid_amount to update debt_amount
+watch(() => form.value.paid_amount, (newPaidAmount) => {
+  const totalValue = total.value
+  
+  if (newPaidAmount !== undefined && newPaidAmount !== null) {
+    if (newPaidAmount > totalValue) {
+      // Prevent paid amount from exceeding total
+      form.value.paid_amount = roundCurrency(totalValue)
+    }
+    
+    // Update payment_methods to include main payment method if not already included
+    if (form.value.payment_method && !form.value.payment_methods.includes(form.value.payment_method)) {
+      form.value.payment_methods = [form.value.payment_method]
+    }
+  }
+  
+  // The calculatedDebtAmount watch will handle updating form.debt_amount
+})
+
+// Watch payment_method to update payment_methods
+watch(() => form.value.payment_method, (newMethod) => {
+  if (newMethod === 'a_prazo') {
+    // If fully on credit, clear paid amount and set debt to total
+    form.value.paid_amount = undefined
+    form.value.debt_amount = roundCurrency(total.value)
+    form.value.payment_methods = ['a_prazo']
+  } else {
+    // If not fully on credit, add to payment_methods if not already included
+    if (newMethod && !form.value.payment_methods.includes(newMethod)) {
+      form.value.payment_methods = [newMethod, ...form.value.payment_methods]
+    }
+  }
+})
+
+// The calculatedDebtAmount watch will handle updating form.debt_amount when total changes
+
 // Watch for products loading to recalculate totals
 watch(() => products.value, () => {
   console.log('Products updated, recalculating totals')
@@ -428,6 +605,9 @@ const resetForm = () => {
     ],
     status: 'confirmed' as Order['status'],
     payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
+    paid_amount: undefined,
+    debt_amount: undefined,
+    payment_methods: [],
     shipping_amount: 0,
     tax_amount: 0,
     notes: ''
@@ -460,6 +640,9 @@ watch(() => props.show, async (show) => {
           })) || [{ product_id: 0, quantity: 1 }],
           status: order.status,
           payment_method: order.payment_method,
+          paid_amount: order.paid_amount,
+          debt_amount: order.debt_amount,
+          payment_methods: order.payment_methods || [],
           shipping_amount: order.shipping_amount || 0,
           tax_amount: order.tax_amount || 0,
           notes: order.notes || ''
@@ -580,6 +763,44 @@ watch(() => products.value, (newProducts) => {
   console.log('Products loaded:', newProducts.length)
 }, { deep: true })
 
+const validatePayment = (): { isValid: boolean; error?: string } => {
+  const totalValue = total.value
+  const paymentMethod = form.value.payment_method
+  const paidAmount = form.value.paid_amount
+
+  // If payment is fully on credit, it's valid
+  if (paymentMethod === 'a_prazo') {
+    return { isValid: true }
+  }
+
+  // If there's a partial payment
+  if (paidAmount !== undefined && paidAmount !== null) {
+    if (paidAmount <= 0) {
+      return { 
+        isValid: false, 
+        error: 'Valor pago deve ser maior que zero' 
+      }
+    }
+    
+    if (paidAmount >= totalValue) {
+      return { 
+        isValid: false, 
+        error: 'Valor pago deve ser menor que o total para pagamento parcial' 
+      }
+    }
+    
+    const debtAmount = totalValue - paidAmount
+    if (debtAmount <= 0) {
+      return { 
+        isValid: false, 
+        error: 'Valor à prazo deve ser maior que zero' 
+      }
+    }
+  }
+
+  return { isValid: true }
+}
+
 const validateForm = (): boolean => {
   errors.value = {}
 
@@ -603,6 +824,13 @@ const validateForm = (): boolean => {
       errors.value[`products.${index}.quantity`] = 'Quantidade deve ser maior que 0'
     }
   })
+
+  // Validate payment
+  const paymentValidation = validatePayment()
+  if (!paymentValidation.isValid && paymentValidation.error) {
+    errors.value.paid_amount = paymentValidation.error
+    return false
+  }
 
   return Object.keys(errors.value).length === 0
 }
@@ -631,50 +859,67 @@ const handleSubmit = async () => {
   await submitOrder()
 }
 
-const prepareUpdateData = () => {
-  if (!originalOrder.value) return form.value
-  
-  console.log('Preparing update data...')
-  console.log('Original order status:', originalOrder.value.status)
-  console.log('Form status:', form.value.status)
-  console.log('Status comparison:', form.value.status !== originalOrder.value.status)
-  
-  const updateData: any = {
+const prepareOrderData = () => {
+  // Prepare base order data
+  const orderData: any = {
     customer_id: form.value.customer_id,
     products: form.value.products,
     payment_method: form.value.payment_method,
-    shipping_amount: form.value.shipping_amount,
-    tax_amount: form.value.tax_amount,
+    shipping_amount: roundCurrency(form.value.shipping_amount || 0),
+    tax_amount: roundCurrency(form.value.tax_amount || 0),
     notes: form.value.notes
   }
-  
-  // Only include status if it changed
-  if (form.value.status !== originalOrder.value.status) {
-    updateData.status = form.value.status
-    console.log('✅ Status changed from', originalOrder.value.status, 'to', form.value.status)
-    console.log('✅ Status will be included in update')
-  } else {
-    console.log('❌ Status unchanged, not sending status field')
-  }
-  
-  console.log('Final update data:', updateData)
-  return updateData
+
+    // Add payment information according to payment type
+    if (form.value.payment_method === 'a_prazo') {
+      // Fully on credit - no paid amount, all is debt
+      orderData.payment_methods = ['a_prazo']
+    } else if (form.value.paid_amount !== undefined && form.value.paid_amount > 0) {
+      // Partial payment - part paid, part as debt
+      orderData.paid_amount = roundCurrency(form.value.paid_amount)
+      const methods = form.value.payment_methods.length > 0 
+        ? [...form.value.payment_methods] 
+        : [form.value.payment_method]
+      
+      // If paid amount is less than total, add 'a_prazo' to methods
+      if (form.value.paid_amount < total.value && !methods.includes('a_prazo')) {
+        methods.push('a_prazo')
+      }
+      orderData.payment_methods = methods
+    } else {
+      // Full payment à vista - no debt
+      // Backend will handle this automatically, but we can be explicit
+      orderData.paid_amount = roundCurrency(total.value)
+      orderData.payment_methods = form.value.payment_methods.length > 0 
+        ? form.value.payment_methods 
+        : [form.value.payment_method]
+    }
+
+  return orderData
 }
 
 const submitOrder = async () => {
   try {
     let result: Order | null = null
 
+    // Prepare order data with payment information
+    const orderData = prepareOrderData()
+
     if (isEditing.value && props.orderId) {
-      const updateData = prepareUpdateData()
-      console.log('🚀 Sending update data to API:', updateData)
+      // Only include status if it changed
+      if (form.value.status !== originalOrder.value?.status) {
+        orderData.status = form.value.status
+      }
+      
+      console.log('🚀 Sending update data to API:', orderData)
       console.log('🚀 Order ID:', props.orderId)
       
-      result = await updateOrder(props.orderId, updateData)
+      result = await updateOrder(props.orderId, orderData)
       console.log('✅ Update successful, result:', result)
     } else {
-      console.log('🚀 Creating new order:', form.value)
-      result = await createOrder(form.value)
+      orderData.status = form.value.status
+      console.log('🚀 Creating new order:', orderData)
+      result = await createOrder(orderData)
       console.log('✅ Create successful, result:', result)
     }
 
@@ -912,7 +1157,65 @@ const handleStockCancel = () => {
     .summary-value {
       font-weight: 500;
       color: var(--primary-dark);
+      
+      &.paid {
+        color: var(--success);
+      }
+      
+      &.debt {
+        color: var(--warning);
+      }
     }
+  }
+
+  .partial-payment-info {
+    background: var(--info-light, #e0f2fe);
+    padding: var(--spacing-3);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-4);
+    
+    .info-text {
+      margin: 0;
+      color: var(--info-dark, #0369a1);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .payment-methods-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
+    
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-2);
+      cursor: pointer;
+      padding: var(--spacing-2);
+      border-radius: var(--radius-sm);
+      transition: background-color var(--transition-fast);
+      
+      &:hover {
+        background: var(--gray-50);
+      }
+      
+      .checkbox-input {
+        cursor: pointer;
+      }
+    }
+  }
+
+  .form-hint {
+    display: block;
+    margin-top: var(--spacing-1);
+    font-size: var(--font-size-xs);
+    color: var(--gray-500);
+  }
+
+  .readonly-input {
+    background: var(--gray-50);
+    cursor: not-allowed;
   }
 }
 

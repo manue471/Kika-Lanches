@@ -8,7 +8,11 @@ import type {
   CustomerIdentifyRequest,
   CustomerIdentifyResponse,
   MenuResponse,
-  Order
+  Order,
+  CustomerBalanceResponse,
+  CustomerDebtsResponse,
+  PayDebtRequest,
+  PayDebtResponse
 } from '@/types/api'
 
 export class CustomersService {
@@ -149,6 +153,44 @@ export class CustomersService {
     // This would typically be handled by the backend
     // For now, return active customers
     return customers.slice(0, limit)
+  }
+
+  /**
+   * Get customer balance
+   */
+  async getBalance(customerId: number): Promise<CustomerBalanceResponse> {
+    return await apiClient.get<CustomerBalanceResponse>(`/customers/${customerId}/balance`)
+  }
+
+  /**
+   * List customer debts with pagination and filters
+   */
+  async getDebts(
+    customerId: number,
+    params?: {
+      page?: number
+      per_page?: number
+      type?: 'debit' | 'payment'
+    }
+  ): Promise<CustomerDebtsResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString())
+    if (params?.type) queryParams.append('type', params.type)
+
+    const queryString = queryParams.toString()
+    const url = queryString 
+      ? `/customers/${customerId}/debts?${queryString}`
+      : `/customers/${customerId}/debts`
+    
+    return await apiClient.get<CustomerDebtsResponse>(url)
+  }
+
+  /**
+   * Pay customer debt
+   */
+  async payDebt(customerId: number, data: PayDebtRequest): Promise<PayDebtResponse> {
+    return await apiClient.post<PayDebtResponse>(`/customers/${customerId}/pay-debt`, data)
   }
 }
 

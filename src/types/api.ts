@@ -184,6 +184,7 @@ export interface Customer {
   name: string
   email?: string
   phone?: string
+  balance?: number
   preferences?: {
     class_info?: string
     guardian?: string
@@ -213,6 +214,9 @@ export interface Order {
   tax_amount?: number
   shipping_amount?: number
   total_amount: number
+  paid_amount?: number
+  debt_amount?: number
+  payment_methods?: string[]
   customer_id: number
   payment_method: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
   shipping_address?: {
@@ -420,6 +424,8 @@ export interface CreateOrderRequest {
   customer_id?: number
   products: OrderItem[]
   payment_method: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
+  paid_amount?: number
+  payment_methods?: string[]
   shipping_address?: Record<string, any>
   tax_amount?: number
   shipping_amount?: number
@@ -551,4 +557,52 @@ export interface ProductsReportResponse {
   }
   products_by_category: Record<string, number>
   products: Product[]
+}
+
+export interface CustomerDebt {
+  id: number
+  customer_id: number
+  order_id?: number | null
+  tenant_id: number
+  type: 'debit' | 'payment'
+  amount: number
+  balance_before?: number
+  balance_after?: number
+  description?: string
+  created_at: string
+  updated_at: string
+  customer?: Customer
+  order?: Order | null
+}
+
+export interface CustomerBalanceResponse {
+  customer: {
+    id: number
+    name: string
+    phone?: string
+    [key: string]: any
+  }
+  balance: number
+}
+
+export interface CustomerDebtsResponse {
+  customer: {
+    id: number
+    name: string
+    phone?: string
+    [key: string]: any
+  }
+  current_balance: number
+  debts: PaginatedResponse<CustomerDebt>
+}
+
+export interface PayDebtRequest {
+  amount: number
+  description?: string
+}
+
+export interface PayDebtResponse {
+  message: string
+  customer: Customer
+  debt: CustomerDebt
 }

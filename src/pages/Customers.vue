@@ -124,6 +124,12 @@
                 {{ customer.is_active ? 'Ativo' : 'Inativo' }}
               </span>
             </div>
+            <div class="customer-balance" v-if="customer.balance !== undefined">
+              <span class="balance-label">Débito:</span>
+              <span class="balance-value" :class="{ 'has-debt': customer.balance > 0, 'no-debt': customer.balance === 0 }">
+                {{ formatCurrency(customer.balance) }}
+              </span>
+            </div>
           </div>
           <div class="customer-actions">
             <BaseButton
@@ -140,6 +146,14 @@
               @click="editCustomer(customer)"
             >
               Editar
+            </BaseButton>
+            <BaseButton
+              v-if="customer.balance && customer.balance > 0"
+              size="sm"
+              variant="warning"
+              @click="openPayDebtModal(customer)"
+            >
+              Quitar Débito
             </BaseButton>
             <BaseButton 
               v-if="isAdmin"
@@ -204,6 +218,14 @@
         </div>
       </div>
     </BaseModal>
+
+    <!-- Pay Debt Modal -->
+    <PayDebtModal
+      :show="showPayDebtModal"
+      :customer="customerToPayDebt"
+      @update:show="showPayDebtModal = $event"
+      @success="handlePayDebtSuccess"
+    />
   </div>
 </template>
 
@@ -216,8 +238,9 @@ import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import BaseModal from '@/components/Base/Modal.vue'
 import CustomerModal from '../components/Modals/CustomerModal.vue'
+import PayDebtModal from '../components/Modals/PayDebtModal.vue'
 import { useCustomers } from '@/composables/useCustomers'
-// import { useNotifications } from '@/composables/useNotifications'
+import { useFormatter } from '@/composables/useUtils'
 import type { Customer } from '@/types/api'
 
 // Get user role from localStorage
@@ -252,13 +275,16 @@ const {
   refreshCustomers
 } = useCustomers()
 
-// const notifications = useNotifications()
+// Composables
+const { currency } = useFormatter()
 
 // UI State
 const showCustomerModal = ref(false)
 const showDeleteModal = ref(false)
+const showPayDebtModal = ref(false)
 const selectedCustomer = ref<Customer | null>(null)
 const customerToDelete = ref<Customer | null>(null)
+const customerToPayDebt = ref<Customer | null>(null)
 
 // Filter state
 const statusFilter = ref<string>('')
@@ -343,6 +369,19 @@ const toggleCustomerActive = async (id: number) => {
       // Error is handled by the composable
     }
   }
+}
+
+const formatCurrency = currency
+
+const openPayDebtModal = (customer: Customer) => {
+  customerToPayDebt.value = customer
+  showPayDebtModal.value = true
+}
+
+const handlePayDebtSuccess = () => {
+  showPayDebtModal.value = false
+  customerToPayDebt.value = null
+  loadCustomers() // Refresh the list to update balances
 }
 
 // Load customers on mount
@@ -603,6 +642,35 @@ onMounted(() => {
   &.inactive {
     background: var(--gray-200);
     color: var(--gray-600);
+  }
+}
+
+.customer-balance {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+  padding: var(--spacing-2);
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+
+  .balance-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--gray-600);
+  }
+
+  .balance-value {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+
+    &.has-debt {
+      color: var(--warning, #f59e0b);
+    }
+
+    &.no-debt {
+      color: var(--success, #10b981);
+    }
   }
 }
 
