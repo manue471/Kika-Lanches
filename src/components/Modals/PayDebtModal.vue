@@ -107,7 +107,6 @@ import BaseInput from '@/components/Base/Input.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import { useCustomerDebts } from '@/composables/useCustomerDebts'
 import { useFormatter } from '@/composables/useUtils'
-import { useNotifications } from '@/composables/useNotifications'
 import type { Customer } from '@/types/api'
 
 interface Props {
@@ -124,7 +123,6 @@ const emit = defineEmits<{
 
 const { payDebt, isPayingDebt, loadBalance } = useCustomerDebts()
 const { currency } = useFormatter()
-const { showNotification } = useNotifications()
 
 const formatCurrency = currency
 
