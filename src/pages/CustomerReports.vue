@@ -252,9 +252,22 @@ const handleSearch = () => {
     clearTimeout(searchTimeout)
   }
   
+  // If search term is empty, reload all customers immediately
+  if (!searchTerm.value || searchTerm.value.length === 0) {
+    searchTimeout = setTimeout(() => {
+      searchCustomers('')
+    }, 2000)
+    return
+  }
+  
+  // Only search if term has at least 3 characters
+  if (searchTerm.value.length < 2) {
+    return
+  }
+  
   searchTimeout = setTimeout(() => {
     searchCustomers(searchTerm.value)
-  }, 500) // 500ms debounce
+  }, 2000) // 2000ms debounce
 }
 
 // Override loadCustomers to handle local error state

@@ -22,7 +22,7 @@
             value-key="id"
             secondary-key="email"
             :min-search-length="2"
-            :debounce-ms="300"
+            :debounce-ms="1000"
             @search="searchCustomers"
             @select="handleCustomerSelect"
             @clear="handleCustomerClear"

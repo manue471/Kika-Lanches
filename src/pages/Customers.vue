@@ -230,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
@@ -289,6 +289,7 @@ const customerToPayDebt = ref<Customer | null>(null)
 // Filter state
 const statusFilter = ref<string>('')
 const customersGrid = ref<HTMLElement | null>(null)
+let searchTimeout: number | null = null
 
 // Filter options
 const statusOptions = [
@@ -312,7 +313,24 @@ const createNewCustomer = () => {
 
 // Filter methods
 const handleSearch = () => {
-  searchCustomers(searchTerm.value)
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  
+  // Clear results if search term is less than 3 characters
+  if (!searchTerm.value || searchTerm.value.length < 2) {
+    if (searchTerm.value.length === 0) {
+      // Only search if search is empty (to show all customers)
+      searchTimeout = setTimeout(() => {
+        searchCustomers('')
+      }, 1000)
+    }
+    return
+  }
+  
+  searchTimeout = setTimeout(() => {
+    searchCustomers(searchTerm.value)
+  }, 1000)
 }
 
 const handleStatusFilter = () => {
@@ -387,6 +405,13 @@ const handlePayDebtSuccess = () => {
 // Load customers on mount
 onMounted(() => {
   loadCustomers()
+})
+
+// Cleanup timeout on unmount
+onUnmounted(() => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
 })
 </script>
 
