@@ -21,8 +21,8 @@
             label-key="name"
             value-key="id"
             secondary-key="email"
-            :min-search-length="2"
-            :debounce-ms="1000"
+            :min-search-length="3"
+            :debounce-ms="2000"
             @search="searchCustomers"
             @select="handleCustomerSelect"
             @clear="handleCustomerClear"
@@ -42,11 +42,23 @@
             class="product-item"
           >
             <div class="product-select">
-              <BaseSelect
-                v-model="item.product_id"
-                :options="productOptions"
-                placeholder="Selecione um produto"
-                @update:modelValue="updateProductPrice(index)"
+              <AutoComplete
+                :id="`product-${index}`"
+                :model-value="getProductForItem(item.product_id)"
+                :options="getProductOptions(index)"
+                :search-term="getProductSearchTerm(index)"
+                :is-loading="isProductSearching(index)"
+                placeholder="Digite o nome do produto..."
+                label-key="name"
+                value-key="id"
+                secondary-key="formatted_price"
+                :min-search-length="3"
+                :debounce-ms="2000"
+                @search="(term) => searchProductsForIndex(index, term)"
+                @select="(product) => handleProductSelect(index, product)"
+                @clear="() => handleProductClear(index)"
+                :error="errors[`products.${index}.product_id`]"
+                class="product-autocomplete"
               />
             </div>
             <div class="quantity-input">
@@ -297,6 +309,7 @@ import { useProducts } from '@/composables/useProducts'
 import { useCustomerSearch } from '@/composables/useCustomerSearch'
 import { useFormatter } from '@/composables/useUtils'
 import { useNotifications } from '@/composables/useNotifications'
+import { productsService } from '@/services/api'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
@@ -373,13 +386,6 @@ console.log('Initial stock confirm state:', showStockConfirm.value)
 
 // Computed
 const formatCurrency = currency
-
-const productOptions = computed(() => 
-  products.value.map(product => ({
-    value: product.id,
-    label: `${product.name} - ${formatCurrency(product.price)}`
-  }))
-)
 
 const statusOptions = [
   { value: 'confirmed', label: 'Confirmado' },
@@ -614,6 +620,10 @@ const resetForm = () => {
   }
   errors.value = {}
   clearCustomerSelection()
+  // Clear all product search states
+  productSearchStates.value.clear()
+  // Initialize state for the first product
+  initProductSearchState(0)
 }
 
 // Watch for modal show/hide
@@ -652,6 +662,19 @@ watch(() => props.show, async (show) => {
         if (order.customer) {
           selectCustomer(order.customer)
         }
+        
+        // Initialize product search states for loaded products
+        form.value.products.forEach((item, index) => {
+          initProductSearchState(index)
+          if (item.product_id) {
+            const product = products.value.find(p => p.id === Number(item.product_id))
+            if (product) {
+              const state = getProductSearchState(index)
+              state.selectedProduct = product
+              state.searchTerm = product.name
+            }
+          }
+        })
       } catch (error) {
         console.error('Error fetching order:', error)
         resetForm()
@@ -675,15 +698,149 @@ const handleCustomerClear = () => {
   clearCustomerSelection()
 }
 
+// Product search state - one instance per product item
+const productSearchStates = ref<Map<number, {
+  searchTerm: string
+  searchResults: any[]
+  isSearching: boolean
+  selectedProduct: any | null
+}>>(new Map())
+
+// Initialize search state for a product item index
+const initProductSearchState = (index: number) => {
+  if (!productSearchStates.value.has(index)) {
+    productSearchStates.value.set(index, {
+      searchTerm: '',
+      searchResults: [],
+      isSearching: false,
+      selectedProduct: null
+    })
+  }
+}
+
+// Get search state for a product item index
+const getProductSearchState = (index: number) => {
+  initProductSearchState(index)
+  return productSearchStates.value.get(index)!
+}
+
+// Product search methods
+const searchProductsForIndex = async (index: number, term: string) => {
+  const state = getProductSearchState(index)
+  
+  if (!term || term.length < 3) {
+    state.searchResults = []
+    state.searchTerm = term
+    return
+  }
+  
+  try {
+    state.isSearching = true
+    state.searchTerm = term
+    
+    const response = await productsService.list({
+      search: term,
+      is_active: true,
+      per_page: 20,
+      page: 1
+    })
+    
+    state.searchResults = response.data
+    
+  } catch (err) {
+    console.error('Error searching products:', err)
+    showNotification('Erro ao buscar produtos', 'error')
+    state.searchResults = []
+  } finally {
+    state.isSearching = false
+  }
+}
+
+const handleProductSelect = (index: number, product: any) => {
+  const state = getProductSearchState(index)
+  state.selectedProduct = product
+  state.searchTerm = product.name
+  
+  // Update form with product ID
+  form.value.products[index].product_id = product.id
+  
+  // Update price and check stock
+  updateProductPrice(index)
+}
+
+const handleProductClear = (index: number) => {
+  const state = getProductSearchState(index)
+  state.selectedProduct = null
+  state.searchTerm = ''
+  state.searchResults = []
+  
+  form.value.products[index].product_id = 0
+}
+
+// Helper functions for AutoComplete
+const getProductForItem = (productId: number | string) => {
+  if (!productId || productId === 0 || productId === '0') return null
+  const productIdNum = Number(productId)
+  const product = products.value.find(p => {
+    const pId = typeof p.id === 'string' ? Number(p.id) : p.id
+    return pId === productIdNum
+  })
+  return product || null
+}
+
+const getProductOptions = (index: number) => {
+  const state = getProductSearchState(index)
+  // Use search results if available, otherwise use all products
+  const sourceProducts = state.searchResults.length > 0 
+    ? state.searchResults 
+    : products.value.filter(p => p.is_active)
+  
+  return sourceProducts.map(product => ({
+    ...product,
+    id: product.id,
+    name: product.name,
+    formatted_price: formatCurrency(typeof product.price === 'string' ? parseFloat(product.price) : product.price)
+  }))
+}
+
+const getProductSearchTerm = (index: number) => {
+  const state = getProductSearchState(index)
+  // If product is selected, show its name, otherwise show search term
+  if (state.selectedProduct) {
+    return state.selectedProduct.name
+  }
+  return state.searchTerm
+}
+
+const isProductSearching = (index: number) => {
+  const state = getProductSearchState(index)
+  return state.isSearching
+}
+
 const addProduct = () => {
+  const newIndex = form.value.products.length
   form.value.products.push({
     product_id: 0,
     quantity: 1
   })
+  // Initialize search state for new product
+  initProductSearchState(newIndex)
 }
 
 const removeProduct = (index: number) => {
   if (form.value.products.length > 1) {
+    // Clear search state for removed product
+    productSearchStates.value.delete(index)
+    // Reindex remaining states
+    const newStates = new Map<number, any>()
+    productSearchStates.value.forEach((state, idx) => {
+      if (idx < index) {
+        newStates.set(idx, state)
+      } else if (idx > index) {
+        newStates.set(idx - 1, state)
+      }
+    })
+    productSearchStates.value = newStates
     form.value.products.splice(index, 1)
   }
 }
@@ -980,9 +1137,10 @@ const handleStockCancel = () => {
 
 <style lang="scss" scoped>
 .order-form {
-  .customer-autocomplete {
-  width: 100%;
-}
+  .customer-autocomplete,
+  .product-autocomplete {
+    width: 100%;
+  }
 
 .form-section {
     margin-bottom: var(--spacing-6);
