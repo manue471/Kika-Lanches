@@ -259,26 +259,28 @@ const handleBlur = () => {
   }, 150)
 }
 
-const handleKeydown = (event: KeyboardEvent | null) => {
+const handleKeydown = (event: Event) => {
   if (!isOpen.value || !event) return
   
-  switch (event.key) {
+  const keyboardEvent = event as KeyboardEvent
+  
+  switch (keyboardEvent.key) {
     case 'ArrowDown':
-      event.preventDefault()
+      keyboardEvent.preventDefault()
       selectedIndex.value = Math.min(selectedIndex.value + 1, filteredOptions.value.length - 1)
       break
     case 'ArrowUp':
-      event.preventDefault()
+      keyboardEvent.preventDefault()
       selectedIndex.value = Math.max(selectedIndex.value - 1, -1)
       break
     case 'Enter':
-      event.preventDefault()
+      keyboardEvent.preventDefault()
       if (selectedIndex.value >= 0 && filteredOptions.value[selectedIndex.value]) {
         selectOption(filteredOptions.value[selectedIndex.value])
       }
       break
     case 'Escape':
-      event.preventDefault()
+      keyboardEvent.preventDefault()
       isOpen.value = false
       selectedIndex.value = -1
       break

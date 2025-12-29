@@ -20,6 +20,7 @@
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         @blur="$emit('blur', $event)"
         @focus="$emit('focus', $event)"
+        @keydown="$emit('keydown', $event)"
       />
       <slot name="suffix" />
     </div>
@@ -58,6 +59,7 @@ defineEmits<{
   'update:modelValue': [value: string | number]
   blur: [event: FocusEvent]
   focus: [event: FocusEvent]
+  keydown: [event: KeyboardEvent]
 }>()
 
 const inputClasses = computed(() => {

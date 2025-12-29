@@ -316,7 +316,6 @@ import { useCustomers } from '@/composables/useCustomers'
 import { useCustomerSearch } from '@/composables/useCustomerSearch'
 import { useFormatter } from '@/composables/useUtils'
 import { useNotifications } from '@/composables/useNotifications'
-import { productsService } from '@/services/api'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
@@ -342,11 +341,9 @@ const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, refresh 
 const { products, loadProducts } = useProducts()
 const { customers, loadCustomers } = useCustomers()
 const { 
-  searchResults: customerSearchResults,
   searchTerm: customerSearchTerm,
   selectedCustomer,
   isSearching: isCustomerSearching,
-  searchCustomers,
   selectCustomer,
   clearSelection: clearCustomerSelection
 } = useCustomerSearch()
@@ -706,7 +703,7 @@ const getCustomerOptions = () => {
   return customers.value.filter(c => c.is_active !== false)
 }
 
-const handleCustomerSearch = async (term: string) => {
+const handleCustomerSearch = async (_term: string) => {
   // Com filtro local ativado, não precisamos buscar na API a cada letra
   // A busca na API pode ser usada apenas se necessário (ex: quando o filtro local não encontrar resultados)
   // Por enquanto, vamos manter a lista de clientes local e filtrar apenas localmente
@@ -751,14 +748,14 @@ const getProductSearchState = (index: number) => {
 
 // Product search methods
 // Agora com filtro local, a busca na API só é necessária se o filtro local não encontrar resultados suficientes
-const searchProductsForIndex = async (index: number, term: string) => {
+const searchProductsForIndex = async (index: number, _term: string) => {
   const state = getProductSearchState(index)
-  state.searchTerm = term
-  
   // Com filtro local ativado, não precisamos buscar na API a cada letra
   // A busca na API pode ser usada apenas se necessário (ex: quando o filtro local não encontrar resultados)
   // Por enquanto, vamos manter a lista de produtos local e filtrar apenas localmente
   // Se no futuro precisar buscar mais produtos da API, pode ser implementado aqui
+  // O searchTerm é gerenciado pelo AutoComplete internamente
+  state.searchTerm = ''
 }
 
 const handleProductSelect = (index: number, product: any) => {
@@ -793,7 +790,7 @@ const getProductForItem = (productId: number | string) => {
   return product || null
 }
 
-const getProductOptions = (index: number) => {
+const getProductOptions = (_index: number) => {
   // Sempre usa todos os produtos ativos para filtro local
   // O AutoComplete agora faz o filtro localmente
   return products.value.filter(p => p.is_active).map(product => ({
