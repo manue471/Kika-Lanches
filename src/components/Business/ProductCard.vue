@@ -6,8 +6,13 @@
     <div class="product-card-category">{{ categoryName }}</div>
     <div class="product-card-name">{{ product.name }}</div>
     <div class="product-card-price">{{ formattedPrice }}</div>
-    <div v-if="showStock && product.stock_quantity !== undefined" :class="stockClasses">
-      Estoque: {{ product.stock_quantity }}
+    <div v-if="showStock && stockQuantity !== undefined" :class="stockClasses">
+      <span v-if="product.stock?.allow_backorder && stockQuantity <= 0" class="backorder-badge">
+        ⚠️ Venda sem estoque
+      </span>
+      <span v-else>
+        Estoque: {{ stockQuantity }}
+      </span>
     </div>
   </div>
 </template>
@@ -16,12 +21,18 @@
 import { computed } from 'vue'
 import { useFormatter } from '@/composables/useUtils'
 
+interface Stock {
+  quantity: number
+  allow_backorder?: boolean
+}
+
 interface Product {
   id: number
   name: string
   price: number
   category: string
   stock_quantity?: number
+  stock?: Stock
 }
 
 interface Props {
@@ -43,15 +54,32 @@ const { currency } = useFormatter()
 
 const formattedPrice = computed(() => currency(props.product.price))
 
+// Get stock quantity from stock.quantity or stock_quantity
+const stockQuantity = computed(() => {
+  if (props.product.stock?.quantity !== undefined) {
+    return props.product.stock.quantity
+  }
+  return props.product.stock_quantity
+})
+
 const isOutOfStock = computed(() => {
-  return props.product.stock_quantity !== undefined && props.product.stock_quantity <= 0
+  // Se allow_backorder é true, não considera como out of stock
+  if (props.product.stock?.allow_backorder) {
+    return false
+  }
+  return stockQuantity.value !== undefined && stockQuantity.value <= 0
 })
 
 const stockClasses = computed(() => {
-  if (!props.product.stock_quantity) return ''
+  if (stockQuantity.value === undefined) return ''
   
-  if (props.product.stock_quantity === 0) return 'product-card-stock out-of-stock'
-  if (props.product.stock_quantity <= 5) return 'product-card-stock low-stock'
+  // Se allow_backorder é true e estoque é negativo/zero, mostra badge especial
+  if (props.product.stock?.allow_backorder && stockQuantity.value <= 0) {
+    return 'product-card-stock backorder'
+  }
+  
+  if (stockQuantity.value === 0) return 'product-card-stock out-of-stock'
+  if (stockQuantity.value <= 5) return 'product-card-stock low-stock'
   return 'product-card-stock'
 })
 
@@ -136,6 +164,20 @@ const handleClick = () => {
   &.out-of-stock {
     color: var(--danger);
     font-weight: 500;
+  }
+
+  &.backorder {
+    color: var(--info, #17a2b8);
+    font-weight: 500;
+  }
+
+  .backorder-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(23, 162, 184, 0.1);
+    color: var(--info, #17a2b8);
+    border-radius: var(--radius-sm, 4px);
+    font-size: var(--font-size-xs);
   }
 }
 </style>

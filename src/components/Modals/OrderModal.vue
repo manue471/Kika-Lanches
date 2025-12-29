@@ -933,10 +933,15 @@ const updateProductPrice = (index: number) => {
     // Check stock availability
     const stock = product.stock
     if (stock) {
-      // const requestedQuantity = form.value.products[index].quantity || 1
+      // Se allow_backorder é true, permite estoque negativo/zero sem avisos
+      if (stock.allow_backorder) {
+        // Não mostra nenhum toast, permite continuar normalmente
+        return
+      }
       
+      // Se não permite backorder, verifica estoque
       // If no stock and backorder not allowed, show warning
-      if (stock.quantity === 0 && !stock.allow_backorder) {
+      if (stock.quantity <= 0) {
         showNotification(
           `⚠️ ${product.name} está sem estoque e não permite pedidos sem estoque`,
           'warning'
@@ -971,20 +976,31 @@ const checkStockIssues = () => {
   
   form.value.products.forEach(item => {
     // Only check if product is selected and quantity is greater than 0
-    if (item.product_id && item.product_id > 0 && item.quantity > 0) {
-      const product = products.value.find(p => p.id === Number(item.product_id))
-      if (product?.stock) {
-        const stock = product.stock
-        // Only add to issues if quantity exceeds available stock AND backorder is not allowed
-        if (item.quantity > stock.quantity && !stock.allow_backorder) {
-          issues.push({
-            productName: product.name,
-            requestedQuantity: item.quantity,
-            availableStock: stock.quantity,
-            allowBackorder: stock.allow_backorder
-          })
-        }
-      }
+    if (!item.product_id || item.product_id <= 0 || item.quantity <= 0) {
+      return
+    }
+    
+    const product = products.value.find(p => p.id === Number(item.product_id))
+    if (!product?.stock) {
+      return
+    }
+    
+    const stock = product.stock
+    // Se allow_backorder é true, permite estoque negativo/zero, não adiciona como issue
+    if (stock.allow_backorder) {
+      // Permite continuar normalmente, não adiciona à lista de issues
+      return
+    }
+    
+    // Only add to issues if quantity exceeds available stock AND backorder is not allowed
+    // Considera estoque 0 ou negativo como problema quando não permite backorder
+    if (item.quantity > stock.quantity || stock.quantity <= 0) {
+      issues.push({
+        productName: product.name,
+        requestedQuantity: item.quantity,
+        availableStock: stock.quantity,
+        allowBackorder: stock.allow_backorder
+      })
     }
   })
   

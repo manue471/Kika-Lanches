@@ -391,6 +391,7 @@ export interface CreateProductRequest {
   is_active?: boolean
   stock_quantity?: number
   image?: string
+  allow_backorder?: boolean
 }
 
 export interface UpdateProductRequest {
@@ -402,6 +403,7 @@ export interface UpdateProductRequest {
   is_active?: boolean
   stock_quantity?: number
   image?: string
+  allow_backorder?: boolean
 }
 
 export interface CreateCustomerRequest {

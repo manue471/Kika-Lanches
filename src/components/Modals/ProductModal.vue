@@ -65,12 +65,29 @@
             id="stock_quantity"
             v-model="form.stock_quantity"
             type="number"
-            min="0"
+            :min="form.allow_backorder ? undefined : 0"
             placeholder="0"
             :error="errors.stock_quantity"
           />
         </div>
 
+      </div>
+
+      <!-- Allow Backorder Checkbox -->
+      <div class="form-group">
+        <div class="form-checkbox-group">
+          <label class="form-checkbox">
+            <input
+              type="checkbox"
+              v-model="form.allow_backorder"
+            />
+            <span class="checkmark"></span>
+            <span>Permitir venda sem estoque</span>
+          </label>
+          <small class="form-hint">
+            Quando ativado, permite que o estoque seja negativo e não bloqueia vendas quando o estoque está zerado.
+          </small>
+        </div>
       </div>
 
       <!-- Descrição -->
@@ -155,7 +172,8 @@ const form = ref<CreateProductRequest & UpdateProductRequest>({
   category_id: undefined,
   is_active: true,
   stock_quantity: 0,
-  image: ''
+  image: '',
+  allow_backorder: false
 })
 
 const errors = ref<Record<string, string>>({})
@@ -172,7 +190,8 @@ const resetForm = () => {
     category_id: undefined,
     is_active: true,
     stock_quantity: 0,
-    image: ''
+    image: '',
+    allow_backorder: false
   }
   errors.value = {}
 }
@@ -194,7 +213,8 @@ watch(() => props.show, async (show) => {
             category_id: product.category_id,
             is_active: product.is_active,
             stock_quantity: product.stock_quantity || 0,
-            image: product.image || ''
+            image: product.image || '',
+            allow_backorder: product.stock?.allow_backorder || false
           }
         }
       } catch (error) {
@@ -220,8 +240,9 @@ const validateForm = (): boolean => {
     errors.value.price = 'Preço deve ser maior que zero'
   }
 
-  if (form.value.stock_quantity !== undefined && form.value.stock_quantity < 0) {
-    errors.value.stock_quantity = 'Estoque não pode ser negativo'
+  // Só valida estoque negativo se allow_backorder não estiver ativado
+  if (form.value.stock_quantity !== undefined && form.value.stock_quantity < 0 && !form.value.allow_backorder) {
+    errors.value.stock_quantity = 'Estoque não pode ser negativo (a menos que permita venda sem estoque)'
   }
 
   return Object.keys(errors.value).length === 0

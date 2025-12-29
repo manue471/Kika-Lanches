@@ -206,13 +206,18 @@
             <span class="price-value">{{ formatCurrency(product.price) }}</span>
           </div>
           
-          <div class="product-stock" v-if="product.stock_quantity !== undefined">
+          <div class="product-stock" v-if="getStockQuantity(product) !== undefined">
             <span class="stock-label">Estoque:</span>
             <span 
               class="stock-value"
-              :class="{ 'low-stock': product.stock_quantity <= 5 }"
+              :class="getStockClasses(product)"
             >
-              {{ product.stock_quantity }} unidades
+              <span v-if="product.stock?.allow_backorder && getStockQuantity(product) <= 0" class="backorder-indicator">
+                ⚠️ Venda sem estoque ({{ getStockQuantity(product) }})
+              </span>
+              <span v-else>
+                {{ getStockQuantity(product) }} unidades
+              </span>
             </span>
           </div>
         </div>
@@ -333,6 +338,33 @@ const sortOptions = [
 
 // Computed
 const formatCurrency = currency
+
+// Helper functions for stock display
+const getStockQuantity = (product: Product): number | undefined => {
+  if (product.stock?.quantity !== undefined) {
+    return product.stock.quantity
+  }
+  return product.stock_quantity
+}
+
+const getStockClasses = (product: Product): string[] => {
+  const quantity = getStockQuantity(product)
+  const classes: string[] = []
+  
+  if (quantity === undefined) return classes
+  
+  // Se allow_backorder é true e estoque é negativo/zero, mostra badge especial
+  if (product.stock?.allow_backorder && quantity <= 0) {
+    classes.push('backorder')
+  } else if (quantity === 0) {
+    classes.push('out-of-stock')
+  } else if (quantity <= 5) {
+    classes.push('low-stock')
+  }
+  
+  return classes
+}
+
 const formatDate = (dateString: string) => {
   return date(new Date(dateString))
 }
@@ -645,6 +677,23 @@ const deleteProductConfirm = async (id: number) => {
     
     &.low-stock {
       color: var(--warning);
+    }
+
+    &.out-of-stock {
+      color: var(--danger);
+    }
+
+    &.backorder {
+      color: var(--info, #17a2b8);
+    }
+
+    .backorder-indicator {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(23, 162, 184, 0.1);
+      color: var(--info, #17a2b8);
+      border-radius: 4px;
+      font-size: var(--font-size-xs);
     }
   }
 }
