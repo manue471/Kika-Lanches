@@ -14,16 +14,19 @@
           <AutoComplete
             id="customer"
             v-model="selectedCustomer"
-            :options="customerSearchResults"
+            :options="getCustomerOptions()"
             :search-term="customerSearchTerm"
             :is-loading="isCustomerSearching"
             placeholder="Digite o nome do cliente..."
             label-key="name"
             value-key="id"
             secondary-key="email"
-            :min-search-length="3"
-            :debounce-ms="2000"
-            @search="searchCustomers"
+            :min-search-length="1"
+            :debounce-ms="500"
+            :show-initial-suggestions="true"
+            :filter-locally="true"
+            :initial-suggestions-limit="20"
+            @search="handleCustomerSearch"
             @select="handleCustomerSelect"
             @clear="handleCustomerClear"
             :error="errors.customer_id"
@@ -52,8 +55,11 @@
                 label-key="name"
                 value-key="id"
                 secondary-key="formatted_price"
-                :min-search-length="3"
-                :debounce-ms="2000"
+                :min-search-length="1"
+                :debounce-ms="500"
+                :show-initial-suggestions="true"
+                :filter-locally="true"
+                :initial-suggestions-limit="20"
                 @search="(term) => searchProductsForIndex(index, term)"
                 @select="(product) => handleProductSelect(index, product)"
                 @clear="() => handleProductClear(index)"
@@ -306,6 +312,7 @@
 import { ref, computed, watch } from 'vue'
 import { useOrders } from '@/composables/useOrders'
 import { useProducts } from '@/composables/useProducts'
+import { useCustomers } from '@/composables/useCustomers'
 import { useCustomerSearch } from '@/composables/useCustomerSearch'
 import { useFormatter } from '@/composables/useUtils'
 import { useNotifications } from '@/composables/useNotifications'
@@ -333,6 +340,7 @@ const emit = defineEmits<{
 
 const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, refresh } = useOrders()
 const { products, loadProducts } = useProducts()
+const { customers, loadCustomers } = useCustomers()
 const { 
   searchResults: customerSearchResults,
   searchTerm: customerSearchTerm,
@@ -629,8 +637,12 @@ const resetForm = () => {
 // Watch for modal show/hide
 watch(() => props.show, async (show) => {
   if (show) {
-    // Load products when modal opens
-    await loadProducts()
+    // Load products and customers when modal opens
+    // Carrega clientes sem filtro de busca para mostrar sugestões iniciais
+    await Promise.all([
+      loadProducts(),
+      loadCustomers(true) // reset = true para carregar do início
+    ])
     
     // If opening with an orderId, load the order data
     if (props.orderId) {
@@ -688,6 +700,19 @@ watch(() => props.show, async (show) => {
 })
 
 // Customer selection methods
+const getCustomerOptions = () => {
+  // Sempre usa todos os clientes carregados para filtro local
+  // O AutoComplete agora faz o filtro localmente
+  return customers.value.filter(c => c.is_active !== false)
+}
+
+const handleCustomerSearch = async (term: string) => {
+  // Com filtro local ativado, não precisamos buscar na API a cada letra
+  // A busca na API pode ser usada apenas se necessário (ex: quando o filtro local não encontrar resultados)
+  // Por enquanto, vamos manter a lista de clientes local e filtrar apenas localmente
+  // Se no futuro precisar buscar mais clientes da API, pode ser implementado aqui
+}
+
 const handleCustomerSelect = (customer: any) => {
   form.value.customer_id = customer.id
   selectCustomer(customer)
@@ -725,35 +750,15 @@ const getProductSearchState = (index: number) => {
 }
 
 // Product search methods
+// Agora com filtro local, a busca na API só é necessária se o filtro local não encontrar resultados suficientes
 const searchProductsForIndex = async (index: number, term: string) => {
   const state = getProductSearchState(index)
+  state.searchTerm = term
   
-  if (!term || term.length < 3) {
-    state.searchResults = []
-    state.searchTerm = term
-    return
-  }
-  
-  try {
-    state.isSearching = true
-    state.searchTerm = term
-    
-    const response = await productsService.list({
-      search: term,
-      is_active: true,
-      per_page: 20,
-      page: 1
-    })
-    
-    state.searchResults = response.data
-    
-  } catch (err) {
-    console.error('Error searching products:', err)
-    showNotification('Erro ao buscar produtos', 'error')
-    state.searchResults = []
-  } finally {
-    state.isSearching = false
-  }
+  // Com filtro local ativado, não precisamos buscar na API a cada letra
+  // A busca na API pode ser usada apenas se necessário (ex: quando o filtro local não encontrar resultados)
+  // Por enquanto, vamos manter a lista de produtos local e filtrar apenas localmente
+  // Se no futuro precisar buscar mais produtos da API, pode ser implementado aqui
 }
 
 const handleProductSelect = (index: number, product: any) => {
@@ -789,13 +794,9 @@ const getProductForItem = (productId: number | string) => {
 }
 
 const getProductOptions = (index: number) => {
-  const state = getProductSearchState(index)
-  // Use search results if available, otherwise use all products
-  const sourceProducts = state.searchResults.length > 0 
-    ? state.searchResults 
-    : products.value.filter(p => p.is_active)
-  
-  return sourceProducts.map(product => ({
+  // Sempre usa todos os produtos ativos para filtro local
+  // O AutoComplete agora faz o filtro localmente
+  return products.value.filter(p => p.is_active).map(product => ({
     ...product,
     id: product.id,
     name: product.name,

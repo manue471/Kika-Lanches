@@ -97,6 +97,9 @@ interface Props {
   debounceMs?: number
   isLoading?: boolean
   clearable?: boolean
+  showInitialSuggestions?: boolean
+  initialSuggestionsLimit?: number
+  filterLocally?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -106,9 +109,12 @@ const props = withDefaults(defineProps<Props>(), {
   valueKey: 'id',
   secondaryKey: '',
   minSearchLength: 1,
-  debounceMs: 300,
+  debounceMs: 100,
   isLoading: false,
-  clearable: true
+  clearable: true,
+  showInitialSuggestions: true,
+  initialSuggestionsLimit: 20,
+  filterLocally: true
 })
 
 const emit = defineEmits<{
@@ -128,60 +134,109 @@ let searchTimeout: number | null = null
 
 // Computed
 const filteredOptions = computed(() => {
-  if (!props.options) return []
+  if (!props.options || props.options.length === 0) return []
   
-  if (!searchTerm.value || searchTerm.value.length < props.minSearchLength) {
-    return []
+  // Filtra opções nulas ou inválidas
+  const validOptions = props.options.filter(option => option != null && typeof option === 'object')
+  
+  if (validOptions.length === 0) return []
+  
+  const hasSearchTerm = searchTerm.value && searchTerm.value.length >= props.minSearchLength
+  
+  // Se não há termo de busca e showInitialSuggestions está ativo, mostra sugestões iniciais
+  if (!hasSearchTerm && props.showInitialSuggestions) {
+    return validOptions.slice(0, props.initialSuggestionsLimit)
   }
   
-  return props.options.filter(option => {
-    const label = getOptionLabel(option).toLowerCase()
-    const secondary = getOptionSecondary(option)?.toLowerCase() || ''
-    const term = searchTerm.value.toLowerCase()
-    
-    return label.includes(term) || secondary.includes(term)
-  })
+  // Se há termo de busca, filtra localmente
+  if (hasSearchTerm && props.filterLocally) {
+    return validOptions.filter(option => {
+      if (!option) return false
+      try {
+        const label = getOptionLabel(option).toLowerCase()
+        const secondary = getOptionSecondary(option)?.toLowerCase() || ''
+        const term = searchTerm.value.toLowerCase()
+        
+        return label.includes(term) || secondary.includes(term)
+      } catch (error) {
+        console.warn('Error filtering option:', option, error)
+        return false
+      }
+    })
+  }
+  
+  // Se não está filtrando localmente, retorna vazio (aguarda busca na API)
+  return []
 })
 
 // Methods
 const getOptionKey = (option: Option): string | number => {
-  return option[props.valueKey] || option.id || option
+  if (!option || typeof option !== 'object') return String(option || '')
+  return option[props.valueKey] || option.id || String(option)
 }
 
 const getOptionLabel = (option: Option): string => {
+  if (!option || typeof option !== 'object') return String(option || '')
   return option[props.labelKey] || option.name || String(option)
 }
 
 const getOptionSecondary = (option: Option): string => {
-  if (!props.secondaryKey) return ''
+  if (!props.secondaryKey || !option || typeof option !== 'object') return ''
   return option[props.secondaryKey] || ''
 }
 
 const isHighlighted = (option: Option): boolean => {
-  if (!searchTerm.value) return false
+  if (!searchTerm.value || !option || typeof option !== 'object') return false
   
-  const label = getOptionLabel(option).toLowerCase()
-  const term = searchTerm.value.toLowerCase()
-  
-  return label.includes(term)
+  try {
+    const label = getOptionLabel(option).toLowerCase()
+    const term = searchTerm.value.toLowerCase()
+    
+    return label.includes(term)
+  } catch (error) {
+    return false
+  }
 }
 
 const handleInput = () => {
   emit('update:searchTerm', searchTerm.value)
   
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
+  // Se está filtrando localmente, não precisa disparar busca na API
+  if (props.filterLocally) {
+    // Apenas dispara busca se o filtro local não encontrar resultados suficientes
+    // ou se o termo de busca for muito longo (opcional)
+    if (searchTerm.value.length >= props.minSearchLength) {
+      // Limpa timeout anterior se existir
+      if (searchTimeout) {
+        clearTimeout(searchTimeout)
+      }
+      
+      // Opcionalmente, pode disparar busca se quiser buscar mais resultados
+      // Por enquanto, apenas filtra localmente
+    }
+  } else {
+    // Se não está filtrando localmente, mantém comportamento original
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    
+    searchTimeout = setTimeout(() => {
+      if (searchTerm.value.length >= props.minSearchLength) {
+        emit('search', searchTerm.value)
+      }
+    }, props.debounceMs)
   }
   
-  searchTimeout = setTimeout(() => {
-    if (searchTerm.value.length >= props.minSearchLength) {
-      emit('search', searchTerm.value)
-    }
-  }, props.debounceMs)
-  
   // Clear selection if search term doesn't match
-  if (props.modelValue && getOptionLabel(props.modelValue) !== searchTerm.value) {
-    emit('update:modelValue', null)
+  if (props.modelValue && typeof props.modelValue === 'object') {
+    try {
+      if (getOptionLabel(props.modelValue) !== searchTerm.value) {
+        emit('update:modelValue', null)
+      }
+    } catch (error) {
+      // Se houver erro ao obter o label, limpa a seleção
+      emit('update:modelValue', null)
+    }
   }
   
   selectedIndex.value = -1
@@ -191,6 +246,8 @@ const handleInput = () => {
 const handleFocus = () => {
   if (!props.disabled) {
     isOpen.value = true
+    // Se há opções disponíveis e showInitialSuggestions está ativo, 
+    // as sugestões já aparecerão via computed filteredOptions
   }
 }
 
@@ -202,8 +259,8 @@ const handleBlur = () => {
   }, 150)
 }
 
-const handleKeydown = (event: KeyboardEvent) => {
-  if (!isOpen.value) return
+const handleKeydown = (event: KeyboardEvent | null) => {
+  if (!isOpen.value || !event) return
   
   switch (event.key) {
     case 'ArrowDown':
@@ -247,8 +304,13 @@ const clearSelection = () => {
 
 // Watchers
 watch(() => props.modelValue, (newValue) => {
-  if (newValue) {
-    searchTerm.value = getOptionLabel(newValue)
+  if (newValue && typeof newValue === 'object') {
+    try {
+      searchTerm.value = getOptionLabel(newValue)
+    } catch (error) {
+      console.warn('Error getting label from modelValue:', newValue, error)
+      searchTerm.value = ''
+    }
   } else if (!searchTerm.value) {
     searchTerm.value = ''
   }
@@ -262,8 +324,12 @@ watch(() => props.searchTerm, (newValue) => {
 
 // Lifecycle
 onMounted(() => {
-  if (props.modelValue) {
-    searchTerm.value = getOptionLabel(props.modelValue)
+  if (props.modelValue && typeof props.modelValue === 'object') {
+    try {
+      searchTerm.value = getOptionLabel(props.modelValue)
+    } catch (error) {
+      console.warn('Error getting label from modelValue on mount:', props.modelValue, error)
+    }
   }
 })
 
