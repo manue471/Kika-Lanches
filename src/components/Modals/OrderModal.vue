@@ -152,13 +152,11 @@
               <label for="paid_amount" class="form-label">Valor Pago (R$)</label>
               <BaseInput
                 id="paid_amount"
-                v-model.number="form.paid_amount"
-                type="number"
-                :min="0"
-                :max="total"
-                step="0.01"
+                v-model="paidAmountInput"
+                type="text"
                 placeholder="0.00"
                 :error="errors.paid_amount"
+                @blur="handlePaidAmountBlur"
               />
               <small class="form-hint">Valor pago à vista neste pedido</small>
             </div>
@@ -370,6 +368,55 @@ const errors = ref<Record<string, string>>({})
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const isEditing = computed(() => !!props.orderId)
 
+// Input temporário para paid_amount (permite digitação livre)
+const paidAmountInput = ref<string>('')
+
+// Função para formatar número para string de exibição
+const formatNumberInput = (value: number | undefined | null): string => {
+  if (value === undefined || value === null || isNaN(value)) return ''
+  return value.toString()
+}
+
+// Função para converter string para número
+const parseNumberInput = (value: string): number | undefined => {
+  if (!value || value.trim() === '') return undefined
+  const cleaned = value.replace(/[^\d.,]/g, '').replace(',', '.')
+  const parsed = parseFloat(cleaned)
+  return isNaN(parsed) ? undefined : parsed
+}
+
+// Helper function to round monetary values to 2 decimal places (definido antes para uso em handlePaidAmountBlur)
+const roundCurrency = (value: number): number => {
+  if (isNaN(value) || !isFinite(value)) return 0
+  return Math.round(value * 100) / 100
+}
+
+// Handler para quando o campo perde o foco
+const handlePaidAmountBlur = () => {
+  const parsed = parseNumberInput(paidAmountInput.value)
+  if (parsed !== undefined) {
+    const totalValue = total.value
+    if (parsed > totalValue) {
+      form.value.paid_amount = roundCurrency(totalValue)
+      paidAmountInput.value = formatNumberInput(totalValue)
+    } else if (parsed < 0) {
+      form.value.paid_amount = 0
+      paidAmountInput.value = '0'
+    } else {
+      form.value.paid_amount = roundCurrency(parsed)
+      paidAmountInput.value = formatNumberInput(roundCurrency(parsed))
+    }
+  } else {
+    form.value.paid_amount = undefined
+    paidAmountInput.value = ''
+  }
+}
+
+// Sincronizar paidAmountInput com form.paid_amount
+watch(() => form.value.paid_amount, (newValue) => {
+  paidAmountInput.value = formatNumberInput(newValue)
+}, { immediate: true })
+
 // Store original order data to detect changes
 const originalOrder = ref<Order | null>(null)
 
@@ -528,12 +575,6 @@ const enablePartialPayment = computed(() => {
   return form.value.payment_method !== 'a_prazo'
 })
 
-// Helper function to round monetary values to 2 decimal places
-const roundCurrency = (value: number): number => {
-  if (isNaN(value) || !isFinite(value)) return 0
-  return Math.round(value * 100) / 100
-}
-
 // Calculated debt amount
 const calculatedDebtAmount = computed(() => {
   const totalValue = total.value
@@ -564,9 +605,11 @@ watch(() => form.value.paid_amount, (newPaidAmount) => {
   const totalValue = total.value
   
   if (newPaidAmount !== undefined && newPaidAmount !== null) {
+    // Validação já é feita no handlePaidAmountBlur, mas mantemos aqui como segurança
     if (newPaidAmount > totalValue) {
       // Prevent paid amount from exceeding total
       form.value.paid_amount = roundCurrency(totalValue)
+      paidAmountInput.value = formatNumberInput(totalValue)
     }
     
     // Update payment_methods to include main payment method if not already included
@@ -583,6 +626,7 @@ watch(() => form.value.payment_method, (newMethod) => {
   if (newMethod === 'a_prazo') {
     // If fully on credit, clear paid amount and set debt to total
     form.value.paid_amount = undefined
+    paidAmountInput.value = ''
     form.value.debt_amount = roundCurrency(total.value)
     form.value.payment_methods = ['a_prazo']
   } else {
@@ -623,6 +667,7 @@ const resetForm = () => {
     tax_amount: 0,
     notes: ''
   }
+  paidAmountInput.value = ''
   errors.value = {}
   clearCustomerSelection()
   // Clear all product search states
@@ -666,6 +711,8 @@ watch(() => props.show, async (show) => {
           tax_amount: order.tax_amount || 0,
           notes: order.notes || ''
         }
+        // Sincronizar o input com o valor do form
+        paidAmountInput.value = formatNumberInput(order.paid_amount)
         
         // Set selected customer for autocomplete
         if (order.customer) {
