@@ -263,7 +263,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useProducts } from '@/composables/useProducts'
 import { useFormatter } from '@/composables/useUtils'
 import BaseCard from '@/components/Base/Card.vue'
@@ -295,6 +295,8 @@ const {
   error,
   
   // Methods
+  loadProducts,
+  loadCategories,
   searchProducts,
   filterByCategory,
   filterByPriceRange,
@@ -442,6 +444,14 @@ const deleteProductConfirm = async (id: number) => {
     await deleteProduct(id)
   }
 }
+
+// Load data on mount - apenas uma vez quando o componente é montado
+onMounted(async () => {
+  await Promise.all([
+    loadProducts(),
+    loadCategories()
+  ])
+})
 </script>
 
 <style lang="scss" scoped>

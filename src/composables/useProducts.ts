@@ -207,9 +207,8 @@ export function useProducts() {
     }
   }
   
-  // Initialize
-  loadProducts()
-  loadCategories()
+  // Não inicializa automaticamente - deve ser chamado explicitamente no onMounted do componente
+  // Isso evita requisições duplicadas quando o composable é instanciado
   
   return {
     // State

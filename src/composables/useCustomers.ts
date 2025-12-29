@@ -146,8 +146,8 @@ export function useCustomers() {
     loadCustomers(true)
   }
   
-  // Initialize
-  loadCustomers()
+  // Não inicializa automaticamente - deve ser chamado explicitamente no onMounted do componente
+  // Isso evita requisições duplicadas quando o composable é instanciado
   
   return {
     // State
