@@ -201,30 +201,20 @@ const isHighlighted = (option: Option): boolean => {
 const handleInput = () => {
   emit('update:searchTerm', searchTerm.value)
   
-  // Se está filtrando localmente, não precisa disparar busca na API
-  if (props.filterLocally) {
-    // Apenas dispara busca se o filtro local não encontrar resultados suficientes
-    // ou se o termo de busca for muito longo (opcional)
-    if (searchTerm.value.length >= props.minSearchLength) {
-      // Limpa timeout anterior se existir
-      if (searchTimeout) {
-        clearTimeout(searchTimeout)
-      }
-      
-      // Opcionalmente, pode disparar busca se quiser buscar mais resultados
-      // Por enquanto, apenas filtra localmente
-    }
-  } else {
-    // Se não está filtrando localmente, mantém comportamento original
-    if (searchTimeout) {
-      clearTimeout(searchTimeout)
-    }
-    
+  // Limpa timeout anterior se existir
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  
+  // Sempre dispara o evento search com debounce, mesmo quando filtra localmente
+  // Isso permite que o componente pai faça busca na API para complementar os resultados locais
+  if (searchTerm.value.length >= props.minSearchLength) {
     searchTimeout = setTimeout(() => {
-      if (searchTerm.value.length >= props.minSearchLength) {
-        emit('search', searchTerm.value)
-      }
+      emit('search', searchTerm.value)
     }, props.debounceMs)
+  } else {
+    // Se o termo é muito curto, emite evento vazio para limpar busca na API
+    emit('search', '')
   }
   
   // Clear selection if search term doesn't match

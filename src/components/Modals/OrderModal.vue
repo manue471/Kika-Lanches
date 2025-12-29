@@ -5,7 +5,12 @@
     size="lg"
     @update:show="$emit('update:show', $event)"
   >
-    <form @submit.prevent="handleSubmit" class="order-form">
+    <!-- Loading overlay quando está carregando pedido para edição -->
+    <div v-if="isLoadingOrder && isEditing" class="loading-overlay">
+      <BaseLoading :show="true" message="Carregando pedido..." variant="inline" />
+    </div>
+    
+    <form @submit.prevent="handleSubmit" class="order-form" :class="{ 'is-loading': isLoadingOrder && isEditing }">
       <!-- Customer Selection -->
       <div class="form-section">
         <h3 class="section-title">Cliente</h3>
@@ -240,6 +245,8 @@
             v-if="isEditing && props.orderId"
             variant="info"
             @click="showTicketForOrder"
+            :loading="isOpeningTicket"
+            :disabled="isOpeningTicket"
           >
             <span class="print-icon">🖨️</span>
             Imprimir Ticket
@@ -318,6 +325,7 @@ import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseButton from '@/components/Base/Button.vue'
+import BaseLoading from '@/components/Base/Loading.vue'
 import AutoComplete from '@/components/Base/AutoComplete.vue'
 import ConfirmModal from '@/components/Base/ConfirmModal.vue'
 import TicketModal from './TicketModal.vue'
@@ -335,13 +343,15 @@ const emit = defineEmits<{
   'success': [order: Order]
 }>()
 
-const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, refresh } = useOrders()
+const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, isLoading: isLoadingOrder, refresh } = useOrders()
 const { products, loadProducts } = useProducts()
 const { customers, loadCustomers } = useCustomers()
 const { 
   searchTerm: customerSearchTerm,
   selectedCustomer,
   isSearching: isCustomerSearching,
+  searchResults: customerSearchResults,
+  searchCustomers: searchCustomersAPI,
   selectCustomer,
   clearSelection: clearCustomerSelection
 } = useCustomerSearch()
@@ -432,6 +442,7 @@ const stockConfirmData = ref<{
 // Ticket modal
 const showTicketModal = ref(false)
 const createdOrderId = ref<number | null>(null)
+const isOpeningTicket = ref(false)
 
 // Ensure modal starts closed
 console.log('Initial stock confirm state:', showStockConfirm.value)
@@ -745,16 +756,37 @@ watch(() => props.show, async (show) => {
 
 // Customer selection methods
 const getCustomerOptions = () => {
-  // Sempre usa todos os clientes carregados para filtro local
-  // O AutoComplete agora faz o filtro localmente
-  return customers.value.filter(c => c.is_active !== false)
+  // Combina clientes locais com resultados da busca na API
+  const localCustomers = customers.value.filter(c => c.is_active !== false)
+  const apiCustomers = customerSearchResults.value || []
+  
+  // Se há resultados da API, combina com os locais (evita duplicatas)
+  if (apiCustomers.length > 0) {
+    const localIds = new Set(localCustomers.map(c => c.id))
+    const uniqueApiCustomers = apiCustomers.filter(c => !localIds.has(c.id))
+    return [...localCustomers, ...uniqueApiCustomers]
+  }
+  
+  // Caso contrário, retorna apenas os locais
+  return localCustomers
 }
 
-const handleCustomerSearch = async (_term: string) => {
-  // Com filtro local ativado, não precisamos buscar na API a cada letra
-  // A busca na API pode ser usada apenas se necessário (ex: quando o filtro local não encontrar resultados)
-  // Por enquanto, vamos manter a lista de clientes local e filtrar apenas localmente
-  // Se no futuro precisar buscar mais clientes da API, pode ser implementado aqui
+const handleCustomerSearch = async (term: string) => {
+  // Se o termo tem menos de 2 caracteres, limpa os resultados da API
+  if (!term || term.length < 2) {
+    customerSearchResults.value = []
+    return
+  }
+  console.log('Customer search term:', term)
+  // Busca na API quando o termo tem pelo menos 2 caracteres
+  // Isso complementa a busca local que já está sendo feita pelo AutoComplete
+  try {
+    await searchCustomersAPI(term)
+    console.log('Customer search results:', customerSearchResults.value)
+  } catch (error) {
+    console.error('Error searching customers:', error)
+  }
+  // Os resultados serão combinados com os locais em getCustomerOptions()
 }
 
 const handleCustomerSelect = (customer: any) => {
@@ -1159,11 +1191,23 @@ const handleTicketClose = () => {
 }
 
 // Show ticket for existing order
-const showTicketForOrder = () => {
+const showTicketForOrder = async () => {
   if (props.orderId) {
-    console.log('🎫 Showing ticket for existing order:', props.orderId)
-    createdOrderId.value = props.orderId
-    showTicketModal.value = true
+    try {
+      isOpeningTicket.value = true
+      console.log('🎫 Showing ticket for existing order:', props.orderId)
+      // Garantir que o pedido está carregado antes de abrir o modal
+      if (!originalOrder.value) {
+        await getOrderById(props.orderId)
+      }
+      createdOrderId.value = props.orderId
+      showTicketModal.value = true
+    } catch (error) {
+      console.error('Error opening ticket:', error)
+      showNotification('Erro ao abrir ticket', 'error')
+    } finally {
+      isOpeningTicket.value = false
+    }
   }
 }
 
@@ -1484,6 +1528,36 @@ const handleStockCancel = () => {
   .modal-actions-right {
     order: 1;
   }
+}
+
+// Loading overlay styles
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  z-index: 10;
+  border-radius: var(--border-radius-md);
+  
+  p {
+    margin: 0;
+    color: var(--gray-700);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.order-form.is-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.6;
 }
 
 // Stock confirmation modal styles
