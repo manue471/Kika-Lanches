@@ -212,10 +212,15 @@
               class="stock-value"
               :class="getStockClasses(product)"
             >
-              <span v-if="product.stock?.allow_backorder && getStockQuantity(product) <= 0" class="backorder-indicator">
-                ⚠️ Venda sem estoque ({{ getStockQuantity(product) }})
-              </span>
-              <span v-else>
+              <template v-if="product.stock?.allow_backorder">
+                <span v-if="getStockQuantity(product) !== undefined && getStockQuantity(product)! <= 0" class="backorder-indicator">
+                  ⚠️ Venda sem estoque ({{ getStockQuantity(product) }})
+                </span>
+                <span v-else-if="getStockQuantity(product) !== undefined">
+                  {{ getStockQuantity(product) }} unidades
+                </span>
+              </template>
+              <span v-else-if="getStockQuantity(product) !== undefined">
                 {{ getStockQuantity(product) }} unidades
               </span>
             </span>
