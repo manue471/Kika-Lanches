@@ -608,3 +608,23 @@ export interface PayDebtResponse {
   customer: Customer
   debt: CustomerDebt
 }
+
+export interface DailyProductsResponse {
+  date: string
+  period?: 'manha' | 'tarde' | null
+  period_label?: string
+  time_range?: {
+    start: string
+    end: string
+  }
+  total_products_sold: number
+  total_orders: number
+  products: Array<{
+    product_id: number
+    name: string
+    sku?: string
+    quantity_sold: number
+    total_revenue: number
+    unit_price: number
+  }>
+}

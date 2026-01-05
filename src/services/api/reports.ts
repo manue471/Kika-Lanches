@@ -10,7 +10,8 @@ import type {
   ProductsReportResponse,
   DashboardResponse,
   CustomerReportResponse,
-  CustomerReportPeriod
+  CustomerReportPeriod,
+  DailyProductsResponse
 } from '@/types/api'
 
 export class ReportsService {
@@ -363,6 +364,24 @@ export class ReportsService {
       responseType: 'blob'
     })
     return response.data
+  }
+
+  /**
+   * Get daily products sold
+   */
+  async getDailyProducts(options?: {
+    date?: string
+    period?: 'manha' | 'tarde'
+  }): Promise<DailyProductsResponse> {
+    const params = new URLSearchParams()
+    
+    if (options?.date) params.append('date', options.date)
+    if (options?.period) params.append('period', options.period)
+    
+    const queryString = params.toString()
+    const url = `/reports/daily-products${queryString ? `?${queryString}` : ''}`
+    
+    return await apiClient.get<DailyProductsResponse>(url)
   }
 }
 
