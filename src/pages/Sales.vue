@@ -219,6 +219,22 @@
             placeholder="Período"
             @change="loadDailyProducts"
           />
+          <div class="products-filters-actions">
+            <BaseButton
+              variant="secondary"
+              :disabled="isExportingPdf"
+              @click="exportDailyProductsPdf(false)"
+            >
+              {{ isExportingPdf ? 'Gerando...' : 'Ver PDF' }}
+            </BaseButton>
+            <BaseButton
+              variant="primary"
+              :disabled="isExportingPdf"
+              @click="exportDailyProductsPdf(true)"
+            >
+              {{ isExportingPdf ? 'Gerando...' : 'Baixar PDF' }}
+            </BaseButton>
+          </div>
         </div>
       </BaseCard>
 
@@ -327,6 +343,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useToast } from 'vue-toastification'
 import { useOrders } from '@/composables/useOrders'
 import { useFormatter } from '@/composables/useUtils'
 import { reportsService } from '@/services/api/reports'
@@ -378,9 +395,12 @@ const selectedOrderId = ref<number | null>(null)
 // Products Sold State
 const dailyProducts = ref<DailyProductsResponse | null>(null)
 const isLoadingProducts = ref(false)
+const isExportingPdf = ref(false)
 const productsError = ref<string | null>(null)
 const productsDateFilter = ref<string>(new Date().toISOString().split('T')[0])
 const productsPeriodFilter = ref<'manha' | 'tarde' | ''>('')
+
+const toast = useToast()
 
 // Computed
 const formatCurrency = currency
@@ -524,6 +544,35 @@ const loadDailyProducts = async () => {
   }
 }
 
+const exportDailyProductsPdf = async (download: boolean) => {
+  isExportingPdf.value = true
+  try {
+    const options: { date?: string; period?: 'manha' | 'tarde'; download?: boolean } = {}
+    if (productsDateFilter.value) options.date = productsDateFilter.value
+    if (productsPeriodFilter.value) options.period = productsPeriodFilter.value as 'manha' | 'tarde'
+    if (download) options.download = true
+
+    const blob = await reportsService.getDailyProductsPdf(options)
+    const url = URL.createObjectURL(blob)
+
+    if (download) {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `produtos-vendidos-${productsDateFilter.value || 'hoje'}${options.period ? `-${options.period}` : ''}.pdf`
+      link.click()
+      toast.success('PDF baixado com sucesso')
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+    URL.revokeObjectURL(url)
+  } catch (err: any) {
+    toast.error(err?.message || 'Erro ao gerar PDF')
+    console.error('Error exporting daily products PDF:', err)
+  } finally {
+    isExportingPdf.value = false
+  }
+}
+
 // Watch for tab changes
 watch(activeTab, (newTab) => {
   if (newTab === 'products' && !dailyProducts.value) {
@@ -608,9 +657,15 @@ onMounted(async () => {
 
 .products-filters-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr auto;
   gap: var(--spacing-4);
   align-items: end;
+}
+
+.products-filters-actions {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
 }
 
 .search-input {
@@ -1008,6 +1063,10 @@ onMounted(async () => {
   .products-filters-grid {
     grid-template-columns: 1fr;
     gap: var(--spacing-3);
+  }
+
+  .products-filters-actions {
+    grid-column: 1;
   }
   
   .date-filters {

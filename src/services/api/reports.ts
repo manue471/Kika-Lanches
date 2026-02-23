@@ -383,6 +383,30 @@ export class ReportsService {
     
     return await apiClient.get<DailyProductsResponse>(url)
   }
+
+  /**
+   * Get daily products sold report as PDF (same filters as getDailyProducts).
+   * Opens in new tab by default; use download: true to force download.
+   */
+  async getDailyProductsPdf(options?: {
+    date?: string
+    period?: 'manha' | 'tarde'
+    download?: boolean
+  }): Promise<Blob> {
+    const params = new URLSearchParams()
+    
+    if (options?.date) params.append('date', options.date)
+    if (options?.period) params.append('period', options.period)
+    if (options?.download) params.append('download', '1')
+    
+    const queryString = params.toString()
+    const url = `/reports/daily-products/pdf${queryString ? `?${queryString}` : ''}`
+    
+    const response = await apiClient.getRaw(url, {
+      responseType: 'blob'
+    })
+    return response.data
+  }
 }
 
 // Export singleton instance
