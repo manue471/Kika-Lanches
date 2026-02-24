@@ -234,6 +234,16 @@
             >
               {{ isExportingPdf ? 'Gerando...' : 'Baixar PDF' }}
             </BaseButton>
+            <BaseButton
+              v-if="isShareSupported"
+              variant="success"
+              :disabled="isExportingPdf || isSharing"
+              :loading="isSharing"
+              @click="shareDailyProductsPdf"
+            >
+              <span v-if="!isSharing" class="share-icon">📤</span>
+              {{ isExportingPdf || isSharing ? 'Gerando...' : 'Compartilhar' }}
+            </BaseButton>
           </div>
         </div>
       </BaseCard>
@@ -346,6 +356,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useOrders } from '@/composables/useOrders'
 import { useFormatter } from '@/composables/useUtils'
+import { useWebShare } from '@/composables/useWebShare'
 import { reportsService } from '@/services/api/reports'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
@@ -401,6 +412,7 @@ const productsDateFilter = ref<string>(new Date().toISOString().split('T')[0])
 const productsPeriodFilter = ref<'manha' | 'tarde' | ''>('')
 
 const toast = useToast()
+const { shareFile, isSupported: isShareSupported, isSharing } = useWebShare()
 
 // Computed
 const formatCurrency = currency
@@ -544,12 +556,22 @@ const loadDailyProducts = async () => {
   }
 }
 
+function getDailyProductsPdfOptions() {
+  const options: { date?: string; period?: 'manha' | 'tarde'; download?: boolean } = {}
+  if (productsDateFilter.value) options.date = productsDateFilter.value
+  if (productsPeriodFilter.value) options.period = productsPeriodFilter.value as 'manha' | 'tarde'
+  return options
+}
+
+function getDailyProductsPdfFilename() {
+  const opts = getDailyProductsPdfOptions()
+  return `produtos-vendidos-${opts.date || 'hoje'}${opts.period ? `-${opts.period}` : ''}.pdf`
+}
+
 const exportDailyProductsPdf = async (download: boolean) => {
   isExportingPdf.value = true
   try {
-    const options: { date?: string; period?: 'manha' | 'tarde'; download?: boolean } = {}
-    if (productsDateFilter.value) options.date = productsDateFilter.value
-    if (productsPeriodFilter.value) options.period = productsPeriodFilter.value as 'manha' | 'tarde'
+    const options = getDailyProductsPdfOptions()
     if (download) options.download = true
 
     const blob = await reportsService.getDailyProductsPdf(options)
@@ -558,7 +580,7 @@ const exportDailyProductsPdf = async (download: boolean) => {
     if (download) {
       const link = document.createElement('a')
       link.href = url
-      link.download = `produtos-vendidos-${productsDateFilter.value || 'hoje'}${options.period ? `-${options.period}` : ''}.pdf`
+      link.download = getDailyProductsPdfFilename()
       link.click()
       toast.success('PDF baixado com sucesso')
     } else {
@@ -568,6 +590,30 @@ const exportDailyProductsPdf = async (download: boolean) => {
   } catch (err: any) {
     toast.error(err?.message || 'Erro ao gerar PDF')
     console.error('Error exporting daily products PDF:', err)
+  } finally {
+    isExportingPdf.value = false
+  }
+}
+
+const shareDailyProductsPdf = async () => {
+  isExportingPdf.value = true
+  try {
+    const options = getDailyProductsPdfOptions()
+    const blob = await reportsService.getDailyProductsPdf(options)
+    const filename = getDailyProductsPdfFilename()
+    const dateLabel = productsDateFilter.value
+      ? formatDate(productsDateFilter.value)
+      : 'hoje'
+    const periodLabel = productsPeriodFilter.value
+      ? (productsPeriodFilter.value === 'manha' ? 'Manhã' : 'Tarde')
+      : ''
+    const title = `Produtos vendidos - ${dateLabel}${periodLabel ? ` (${periodLabel})` : ''}`
+    await shareFile(blob, filename, title, `Relatório de produtos vendidos - ${dateLabel}`)
+  } catch (err: any) {
+    if (err?.name !== 'AbortError') {
+      toast.error(err?.message || 'Erro ao compartilhar PDF')
+      console.error('Error sharing daily products PDF:', err)
+    }
   } finally {
     isExportingPdf.value = false
   }
