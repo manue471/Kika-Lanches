@@ -1024,7 +1024,7 @@ const validatePayment = (): { isValid: boolean; error?: string } => {
     return { isValid: true }
   }
 
-  // If there's a partial payment
+  // Validação do valor pago: não pode ser zero/negativo nem ultrapassar o total
   if (paidAmount !== undefined && paidAmount !== null) {
     if (paidAmount <= 0) {
       return { 
@@ -1033,18 +1033,21 @@ const validatePayment = (): { isValid: boolean; error?: string } => {
       }
     }
     
-    if (paidAmount >= totalValue) {
+    if (paidAmount > totalValue) {
       return { 
         isValid: false, 
-        error: 'Valor pago deve ser menor que o total para pagamento parcial' 
+        error: 'Valor pago não pode ser maior que o total da venda' 
       }
     }
     
-    const debtAmount = totalValue - paidAmount
-    if (debtAmount <= 0) {
-      return { 
-        isValid: false, 
-        error: 'Valor à prazo deve ser maior que zero' 
+    // Pagamento parcial: o restante (à prazo) deve ser positivo
+    if (paidAmount < totalValue) {
+      const debtAmount = totalValue - paidAmount
+      if (debtAmount <= 0) {
+        return { 
+          isValid: false, 
+          error: 'Valor à prazo deve ser maior que zero' 
+        }
       }
     }
   }
