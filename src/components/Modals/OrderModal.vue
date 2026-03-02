@@ -52,7 +52,7 @@
             <div class="product-select">
               <AutoComplete
                 :id="`product-${index}`"
-                :model-value="getProductForItem(item.product_id)"
+                :model-value="getProductForItem(item.product_id, index)"
                 :options="getProductOptions(index)"
                 :search-term="getProductSearchTerm(index)"
                 :is-loading="isProductSearching(index)"
@@ -63,7 +63,7 @@
                 :min-search-length="1"
                 :debounce-ms="500"
                 :show-initial-suggestions="true"
-                :filter-locally="true"
+                :filter-locally="false"
                 :initial-suggestions-limit="20"
                 @search="(term) => searchProductsForIndex(index, term)"
                 @select="(product) => handleProductSelect(index, product)"
@@ -77,24 +77,24 @@
                 v-model.number="item.quantity"
                 type="number"
                 :min="1"
-                :max="getMaxQuantity(item.product_id)"
+                :max="getMaxQuantity(item.product_id, index)"
                 placeholder="Qtd"
                 @input="calculateItemTotal()"
-                :error="getStockError(item.product_id, item.quantity)"
+                :error="getStockError(item.product_id, item.quantity, index)"
               />
               <div class="stock-info">
                 <span class="stock-label">Estoque:</span>
                 <span 
                   class="stock-quantity"
-                  :class="getStockClass(item.product_id)"
+                  :class="getStockClass(item.product_id, index)"
                 >
-                  {{ getStockQuantity(item.product_id) }}
+                  {{ getStockQuantity(item.product_id, index) }}
                 </span>
               </div>
             </div>
             <div class="price-display">
-              <div class="unit-price">{{ formatCurrency(getProductPrice(item.product_id)) }} cada</div>
-              <div class="total-price">{{ formatCurrency(getProductPrice(item.product_id) * item.quantity) }}</div>
+              <div class="unit-price">{{ formatCurrency(getProductPrice(item.product_id, index)) }} cada</div>
+              <div class="total-price">{{ formatCurrency(getProductPrice(item.product_id, index) * item.quantity) }}</div>
             </div>
             <BaseButton
               type="button"
@@ -321,6 +321,7 @@ import { useCustomers } from '@/composables/useCustomers'
 import { useCustomerSearch } from '@/composables/useCustomerSearch'
 import { useFormatter } from '@/composables/useUtils'
 import { useNotifications } from '@/composables/useNotifications'
+import { productsService } from '@/services/api'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
@@ -463,80 +464,57 @@ const paymentMethodOptions = [
   { value: 'a_prazo', label: 'À Prazo' }
 ]
 
-// Stock validation methods (moved before computed to avoid dependency issues)
-const getStockInfo = (productId: number | string) => {
+// Resolve product by ID; usa products.value ou selectedProduct da linha (produto vindo da busca API)
+const getProductById = (productId: number | string, index?: number) => {
   if (!productId || productId === 0 || productId === '0') return null
   const productIdNum = Number(productId)
   if (isNaN(productIdNum)) return null
-  
-  // Find product by ID, ensuring type conversion
-  const product = products.value.find(p => {
-    const pId = typeof p.id === 'string' ? Number(p.id) : p.id
-    return pId === productIdNum
-  })
-  
+  const fromList = products.value.find(p => (typeof p.id === 'string' ? Number(p.id) : p.id) === productIdNum)
+  if (fromList) return fromList
+  if (index !== undefined) {
+    const state = getProductSearchState(index)
+    if (state.selectedProduct && Number(state.selectedProduct.id) === productIdNum) return state.selectedProduct
+  }
+  return null
+}
+
+// Stock validation methods (moved before computed to avoid dependency issues)
+const getStockInfo = (productId: number | string, index?: number) => {
+  const product = getProductById(productId, index)
   return product?.stock || null
 }
 
 // Helper to get stock quantity - ensures we get the correct value from stock.quantity
-const getStockQuantity = (productId: number | string): number => {
+const getStockQuantity = (productId: number | string, index?: number): number => {
   if (!productId || productId === 0 || productId === '0') return 0
-  
-  const stock = getStockInfo(productId)
-  if (!stock) {
-    // Debug: log when stock is not found
-    if (productId) {
-      console.debug('Stock not found for product_id:', productId, 'Available products:', products.value.map(p => ({ id: p.id, name: p.name })))
-    }
-    return 0
-  }
-  
-  // Handle both number and string quantities from API
+  const stock = getStockInfo(productId, index)
+  if (!stock) return 0
   let quantity = stock.quantity
-  if (typeof quantity === 'string') {
-    quantity = parseFloat(quantity) || 0
-  }
-  if (typeof quantity !== 'number' || isNaN(quantity)) {
-    quantity = 0
-  }
-  
+  if (typeof quantity === 'string') quantity = parseFloat(quantity) || 0
+  if (typeof quantity !== 'number' || isNaN(quantity)) quantity = 0
   return quantity
 }
 
-const getMaxQuantity = (productId: number | string): number => {
-  const stock = getStockInfo(productId)
+const getMaxQuantity = (productId: number | string, index?: number): number => {
+  const stock = getStockInfo(productId, index)
   if (!stock) return 999
-  
-  // If backorder is allowed, no max limit
   if (stock.allow_backorder) return 999
-  
-  // Otherwise, limit to available stock
   return stock.quantity ?? 0
 }
 
-const getStockError = (productId: number | string, quantity: number): string => {
-  const stock = getStockInfo(productId)
+const getStockError = (productId: number | string, quantity: number, index?: number): string => {
+  const stock = getStockInfo(productId, index)
   if (!stock) return ''
-  
-  // If backorder is allowed, no error
   if (stock.allow_backorder) return ''
-  
   const stockQuantity = stock.quantity ?? 0
-  
-  // Check if quantity exceeds available stock
-  if (quantity > stockQuantity) {
-    return `Estoque insuficiente. Disponível: ${stockQuantity} unidades`
-  }
-  
+  if (quantity > stockQuantity) return `Estoque insuficiente. Disponível: ${stockQuantity} unidades`
   return ''
 }
 
-const getStockClass = (productId: number | string): string => {
-  const stock = getStockInfo(productId)
+const getStockClass = (productId: number | string, index?: number): string => {
+  const stock = getStockInfo(productId, index)
   if (!stock) return ''
-  
   const stockQuantity = stock.quantity ?? 0
-  
   if (stockQuantity === 0) return 'stock-empty'
   if (stock.min_stock_level && stockQuantity <= stock.min_stock_level) return 'stock-low'
   return 'stock-ok'
@@ -544,24 +522,13 @@ const getStockClass = (productId: number | string): string => {
 
 // Computed properties for totals (must be defined before watchers that use them)
 const subtotal = computed(() => {
-  const subtotalValue = form.value.products.reduce((total, item) => {
-    const product = products.value.find(p => p.id === Number(item.product_id))
-    const price = product ? Number(product.price) : 0
+  const subtotalValue = form.value.products.reduce((total, item, index) => {
+    const product = getProductById(item.product_id, index)
+    const price = product ? getProductPrice(item.product_id, index) : 0
     const quantity = Number(item.quantity) || 0
     const itemTotal = price * quantity
-    
-    console.log('Subtotal item calculation:', {
-      productId: item.product_id,
-      product: product?.name,
-      price: price,
-      quantity: quantity,
-      itemTotal: itemTotal
-    })
-    
     return total + itemTotal
   }, 0)
-  
-  console.log('Subtotal calculation result:', subtotalValue)
   return subtotalValue
 })
 
@@ -657,10 +624,12 @@ watch(() => products.value, () => {
   console.log('Current total:', total.value)
 }, { deep: true })
 
-// Helper function to get product price
-const getProductPrice = (productId: number | string) => {
-  const product = products.value.find(p => p.id === Number(productId))
-  return product ? product.price : 0
+// Helper function to get product price (index opcional: produto vindo da busca)
+const getProductPrice = (productId: number | string, index?: number) => {
+  const product = getProductById(productId, index)
+  if (!product) return 0
+  const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price
+  return isNaN(price) ? 0 : price
 }
 
 const resetForm = () => {
@@ -734,7 +703,7 @@ watch(() => props.show, async (show) => {
         form.value.products.forEach((item, index) => {
           initProductSearchState(index)
           if (item.product_id) {
-            const product = products.value.find(p => p.id === Number(item.product_id))
+            const product = getProductById(item.product_id, index)
             if (product) {
               const state = getProductSearchState(index)
               state.selectedProduct = product
@@ -825,16 +794,44 @@ const getProductSearchState = (index: number) => {
   return productSearchStates.value.get(index)!
 }
 
-// Product search methods
-// Agora com filtro local, a busca na API só é necessária se o filtro local não encontrar resultados suficientes
-const searchProductsForIndex = async (index: number, _term: string) => {
+const mapProductToOption = (product: any) => ({
+  ...product,
+  id: product.id,
+  name: product.name,
+  formatted_price: formatCurrency(typeof product.price === 'string' ? parseFloat(product.price) : product.price)
+})
+
+// Força o Vue a detectar mudanças no estado de busca (Map não é reativo a mutações internas)
+const triggerProductSearchReactivity = () => {
+  productSearchStates.value = new Map(productSearchStates.value)
+}
+
+// Product search methods: busca na API (mesma lógica da listagem de produtos)
+const searchProductsForIndex = async (index: number, term: string) => {
   const state = getProductSearchState(index)
-  // Com filtro local ativado, não precisamos buscar na API a cada letra
-  // A busca na API pode ser usada apenas se necessário (ex: quando o filtro local não encontrar resultados)
-  // Por enquanto, vamos manter a lista de produtos local e filtrar apenas localmente
-  // Se no futuro precisar buscar mais produtos da API, pode ser implementado aqui
-  // O searchTerm é gerenciado pelo AutoComplete internamente
-  state.searchTerm = ''
+  state.isSearching = true
+  triggerProductSearchReactivity()
+  try {
+    if (!term || !term.trim()) {
+      state.searchResults = []
+      state.isSearching = false
+      triggerProductSearchReactivity()
+      return
+    }
+    const response = await productsService.list({
+      search: term.trim(),
+      is_active: true,
+      per_page: 50,
+      page: 1
+    })
+    state.searchResults = response.data ?? []
+  } catch (err) {
+    console.error('Error searching products:', err)
+    state.searchResults = []
+  } finally {
+    state.isSearching = false
+    triggerProductSearchReactivity()
+  }
 }
 
 const handleProductSelect = (index: number, product: any) => {
@@ -853,31 +850,36 @@ const handleProductClear = (index: number) => {
   const state = getProductSearchState(index)
   state.selectedProduct = null
   state.searchTerm = ''
-  state.searchResults = []
-  
+  state.searchResults = [] // volta a mostrar a lista inicial (products.value) no próximo getProductOptions
+  triggerProductSearchReactivity()
   form.value.products[index].product_id = 0
 }
 
-// Helper functions for AutoComplete
-const getProductForItem = (productId: number | string) => {
+// Helper functions for AutoComplete (index opcional: usado para produto vindo da busca API que pode não estar em products.value)
+const getProductForItem = (productId: number | string, index?: number) => {
   if (!productId || productId === 0 || productId === '0') return null
   const productIdNum = Number(productId)
   const product = products.value.find(p => {
     const pId = typeof p.id === 'string' ? Number(p.id) : p.id
     return pId === productIdNum
   })
-  return product || null
+  if (product) return mapProductToOption(product)
+  // Produto pode ter vindo da busca (ex.: recém-criado); usar selectedProduct do estado da linha
+  if (index !== undefined) {
+    const state = getProductSearchState(index)
+    if (state.selectedProduct && Number(state.selectedProduct.id) === productIdNum)
+      return mapProductToOption(state.selectedProduct)
+  }
+  return null
 }
 
-const getProductOptions = (_index: number) => {
-  // Sempre usa todos os produtos ativos para filtro local
-  // O AutoComplete agora faz o filtro localmente
-  return products.value.filter(p => p.is_active).map(product => ({
-    ...product,
-    id: product.id,
-    name: product.name,
-    formatted_price: formatCurrency(typeof product.price === 'string' ? parseFloat(product.price) : product.price)
-  }))
+const getProductOptions = (index: number) => {
+  const state = getProductSearchState(index)
+  // Se há resultados de busca na API, usa esses; senão usa a lista inicial (products.value)
+  const list = state.searchResults.length > 0
+    ? state.searchResults
+    : products.value.filter((p: any) => p.is_active)
+  return list.map(mapProductToOption)
 }
 
 const getProductSearchTerm = (index: number) => {
@@ -924,11 +926,10 @@ const removeProduct = (index: number) => {
 
 const updateProductPrice = (index: number) => {
   const productId = form.value.products[index].product_id
-  const productIdNum = Number(productId)
-  const product = products.value.find(p => p.id === productIdNum)
+  const product = getProductById(productId, index)
   
   if (product) {
-    console.log('Product selected:', { productId, productIdNum, product, index })
+    console.log('Product selected:', { productId, product, index })
     
     // Check stock availability
     const stock = product.stock
@@ -941,7 +942,7 @@ const updateProductPrice = (index: number) => {
       
       // Se não permite backorder, verifica estoque
       // If no stock and backorder not allowed, show warning
-      if (stock.quantity <= 0) {
+      if (stock.quantity <= 0 && !stock.allow_backorder) {
         showNotification(
           `⚠️ ${product.name} está sem estoque e não permite pedidos sem estoque`,
           'warning'
@@ -974,13 +975,13 @@ const checkStockIssues = () => {
     allowBackorder: boolean
   }> = []
   
-  form.value.products.forEach(item => {
+  form.value.products.forEach((item, index) => {
     // Only check if product is selected and quantity is greater than 0
     if (!item.product_id || item.product_id <= 0 || item.quantity <= 0) {
       return
     }
     
-    const product = products.value.find(p => p.id === Number(item.product_id))
+    const product = getProductById(item.product_id, index)
     if (!product?.stock) {
       return
     }

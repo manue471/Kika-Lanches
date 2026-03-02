@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { textMatchesSearch } from '@/composables/useUtils'
 import BaseInput from './Input.vue'
 
 interface Option {
@@ -148,16 +149,15 @@ const filteredOptions = computed(() => {
     return validOptions.slice(0, props.initialSuggestionsLimit)
   }
   
-  // Se há termo de busca, filtra localmente
+  // Se há termo de busca, filtra localmente (ignora maiúsculas/minúsculas e acentos)
   if (hasSearchTerm && props.filterLocally) {
     return validOptions.filter(option => {
       if (!option) return false
       try {
-        const label = getOptionLabel(option).toLowerCase()
-        const secondary = getOptionSecondary(option)?.toLowerCase() || ''
-        const term = searchTerm.value.toLowerCase()
-        
-        return label.includes(term) || secondary.includes(term)
+        const label = getOptionLabel(option)
+        const secondary = getOptionSecondary(option) || ''
+        const term = searchTerm.value
+        return textMatchesSearch(label, term) || textMatchesSearch(secondary, term)
       } catch (error) {
         console.warn('Error filtering option:', option, error)
         return false
@@ -165,7 +165,11 @@ const filteredOptions = computed(() => {
     })
   }
   
-  // Se não está filtrando localmente, retorna vazio (aguarda busca na API)
+  // Busca na API: o pai já passou as opções (resultados da busca) em props.options
+  if (hasSearchTerm && !props.filterLocally) {
+    return validOptions
+  }
+  
   return []
 })
 
@@ -189,10 +193,7 @@ const isHighlighted = (option: Option): boolean => {
   if (!searchTerm.value || !option || typeof option !== 'object') return false
   
   try {
-    const label = getOptionLabel(option).toLowerCase()
-    const term = searchTerm.value.toLowerCase()
-    
-    return label.includes(term)
+    return textMatchesSearch(getOptionLabel(option), searchTerm.value)
   } catch (error) {
     return false
   }

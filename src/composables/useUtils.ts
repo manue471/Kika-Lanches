@@ -3,6 +3,26 @@
  */
 
 /**
+ * Normaliza texto para busca: minúsculas e sem acentos/diacríticos.
+ * Usado para comparações case-insensitive e accent-insensitive.
+ */
+export function normalizeForSearch(str: string): string {
+  if (typeof str !== 'string') return ''
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+/**
+ * Verifica se um texto corresponde ao termo de busca (ignora maiúsculas/minúsculas e acentos).
+ */
+export function textMatchesSearch(text: string, searchTerm: string): boolean {
+  if (!searchTerm || typeof text !== 'string') return !searchTerm
+  return normalizeForSearch(text).includes(normalizeForSearch(searchTerm))
+}
+
+/**
  * Validação de dados
  */
 export const useValidator = () => {
