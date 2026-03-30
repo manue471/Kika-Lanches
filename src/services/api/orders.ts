@@ -12,12 +12,14 @@ export class OrdersService {
   /**
    * List orders
    */
-  async list(params?: { 
+  async list(params?: {
     payment_method?: string
     status?: string
     date_from?: string
     date_to?: string
     time_range?: string
+    page?: number
+    per_page?: number
   }): Promise<PaginatedResponse<Order>> {
     const queryParams = new URLSearchParams()
     if (params?.payment_method) {
@@ -35,10 +37,16 @@ export class OrdersService {
     if (params?.time_range) {
       queryParams.append('time_range', params.time_range)
     }
-    
+    if (params?.page != null) {
+      queryParams.append('page', String(params.page))
+    }
+    if (params?.per_page != null) {
+      queryParams.append('per_page', String(params.per_page))
+    }
+
     const queryString = queryParams.toString()
     const url = queryString ? `/orders?${queryString}` : '/orders'
-    
+
     return await apiClient.get<PaginatedResponse<Order>>(url)
   }
 

@@ -8,10 +8,14 @@ import type {
 
 export class UsersService {
   /**
-   * List all users
+   * List all users (paginação opcional)
    */
-  async list(): Promise<PaginatedResponse<User>> {
-    return await apiClient.get<PaginatedResponse<User>>('/users')
+  async list(params?: { per_page?: number; page?: number }): Promise<PaginatedResponse<User>> {
+    const q = new URLSearchParams()
+    if (params?.per_page != null) q.append('per_page', String(params.per_page))
+    if (params?.page != null) q.append('page', String(params.page))
+    const qs = q.toString()
+    return await apiClient.get<PaginatedResponse<User>>(qs ? `/users?${qs}` : '/users')
   }
 
   /**

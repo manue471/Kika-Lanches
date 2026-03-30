@@ -16,52 +16,80 @@ export function useOrders() {
   const endDate = ref('')
   const timeRangeFilter = ref('')
   
+  const ORDERS_PER_PAGE = 15
+
   // State
   const orders = ref<Order[]>([])
   const error = ref<string | null>(null)
   const timePeriods = ref<Record<string, { label: string; time_range: string; description: string }>>({})
-  
+  const ordersCurrentPage = ref(1)
+  const ordersLastPage = ref(1)
+  const isLoadingMoreOrders = ref(false)
+
+  const hasMoreOrders = computed(() => ordersCurrentPage.value < ordersLastPage.value)
+
   // Computed
   const isLoading = computed(() => loading.isLoading.value)
   const isCreating = computed(() => loading.isLoading.value)
   const isUpdating = computed(() => loading.isLoading.value)
   const isDeleting = computed(() => loading.isLoading.value)
   
-  // Methods
+  const buildOrdersListParams = (page: number) => {
+    const params: {
+      payment_method?: string
+      status?: string
+      date_from?: string
+      date_to?: string
+      time_range?: string
+      page: number
+      per_page: number
+    } = {
+      page,
+      per_page: ORDERS_PER_PAGE
+    }
+    if (paymentMethodFilter.value) params.payment_method = paymentMethodFilter.value
+    if (statusFilter.value) params.status = statusFilter.value
+    if (startDate.value) params.date_from = startDate.value
+    if (endDate.value) params.date_to = endDate.value
+    if (timeRangeFilter.value) params.time_range = timeRangeFilter.value
+    return params
+  }
+
+  /** Recarrega do início (filtros, primeira página) */
   const loadOrders = async () => {
     try {
       loading.setLoading(true)
       error.value = null
-      console.log('Loading orders...')
-      
-      // Build query parameters
-      const params: any = {}
-      if (paymentMethodFilter.value) {
-        params.payment_method = paymentMethodFilter.value
-      }
-      if (statusFilter.value) {
-        params.status = statusFilter.value
-      }
-      if (startDate.value) {
-        params.date_from = startDate.value
-      }
-      if (endDate.value) {
-        params.date_to = endDate.value
-      }
-      if (timeRangeFilter.value) {
-        params.time_range = timeRangeFilter.value
-      }
-      
-      const response = await ordersService.list(params)
-      console.log('Orders response:', response)
+      ordersCurrentPage.value = 1
+
+      const response = await ordersService.list(buildOrdersListParams(1))
       orders.value = response.data
-      console.log('Orders set:', orders.value)
+      ordersLastPage.value = response.last_page ?? 1
+      ordersCurrentPage.value = response.current_page ?? 1
     } catch (err) {
       console.error('Error loading orders:', err)
       error.value = 'Erro ao carregar pedidos'
       notifications.error('Erro ao carregar pedidos')
     } finally {
       loading.setLoading(false)
+    }
+  }
+
+  /** Próxima página (scroll infinito) */
+  const loadMoreOrders = async () => {
+    if (!hasMoreOrders.value || isLoadingMoreOrders.value || loading.isLoading.value) return
+    const nextPage = ordersCurrentPage.value + 1
+    try {
+      isLoadingMoreOrders.value = true
+      const response = await ordersService.list(buildOrdersListParams(nextPage))
+      orders.value = [...orders.value, ...response.data]
+      ordersLastPage.value = response.last_page ?? ordersLastPage.value
+      ordersCurrentPage.value = response.current_page ?? nextPage
+    } catch (err) {
+      console.error('Error loading more orders:', err)
+      notifications.error('Erro ao carregar mais pedidos')
+    } finally {
+      isLoadingMoreOrders.value = false
     }
   }
   
@@ -202,7 +230,9 @@ export function useOrders() {
     timeRangeFilter,
     timePeriods,
     error,
-    
+    hasMoreOrders,
+    isLoadingMoreOrders,
+
     isLoading,
     isCreating,
     isUpdating,
@@ -210,6 +240,7 @@ export function useOrders() {
     
     // Methods
     loadOrders,
+    loadMoreOrders,
     createOrder,
     updateOrder,
     deleteOrder,

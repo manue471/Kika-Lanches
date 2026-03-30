@@ -157,8 +157,8 @@
     </BaseCard>
 
     <!-- Products Grid -->
-    <div v-else class="products-grid" :class="{ 'list-view': viewMode === 'list' }">
-      <!-- Products List -->
+    <div v-else-if="products && products.length > 0" class="products-list-wrap">
+      <div class="products-grid" :class="{ 'list-view': viewMode === 'list' }">
       <BaseCard
         v-for="product in products"
         :key="product.id"
@@ -239,10 +239,14 @@
           </div>
         </div>
       </BaseCard>
+      </div>
+      <div ref="loadMoreSentinel" class="load-more-sentinel" aria-hidden="true" />
+      <div v-if="isLoadingMore" class="load-more-hint">Carregando mais produtos...</div>
+      <div v-else-if="hasMoreProducts" class="load-more-hint subtle">Role para carregar mais</div>
     </div>
 
     <!-- Empty State -->
-    <BaseCard v-if="!isLoading && (!products || products.length === 0)" class="empty-state">
+    <BaseCard v-if="!isLoading && !error && (!products || products.length === 0)" class="empty-state">
       <div class="empty-content">
         <span class="empty-icon">📦</span>
         <h3>Nenhum produto encontrado</h3>
@@ -263,7 +267,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useProducts } from '@/composables/useProducts'
 import { useFormatter } from '@/composables/useUtils'
 import BaseCard from '@/components/Base/Card.vue'
@@ -290,12 +294,15 @@ const {
   // isUpdating,
   isDeleting,
   isToggling,
+  hasMoreProducts,
+  isLoadingMore,
   
   // Errors
   error,
   
   // Methods
   loadProducts,
+  loadMoreProducts,
   loadCategories,
   searchProducts,
   filterByCategory,
@@ -316,6 +323,8 @@ const { currency, date } = useFormatter()
 const viewMode = ref<'grid' | 'list'>('grid')
 const showProductModal = ref(false)
 const selectedProductId = ref<number | null>(null)
+const loadMoreSentinel = ref<HTMLElement | null>(null)
+let loadMoreObserver: IntersectionObserver | null = null
 
 // Filter inputs
 const minPriceInput = ref<string>('')
@@ -445,12 +454,42 @@ const deleteProductConfirm = async (id: number) => {
   }
 }
 
-// Load data on mount - apenas uma vez quando o componente é montado
+const setupInfiniteScroll = () => {
+  loadMoreObserver?.disconnect()
+  if (!loadMoreSentinel.value) return
+  loadMoreObserver = new IntersectionObserver(
+    (entries) => {
+      const e = entries[0]
+      if (e?.isIntersecting && hasMoreProducts.value && !isLoadingMore.value && !isLoading.value) {
+        loadMoreProducts()
+      }
+    },
+    { root: null, rootMargin: '120px', threshold: 0 }
+  )
+  loadMoreObserver.observe(loadMoreSentinel.value)
+}
+
+watch(
+  () => products.value.length,
+  () => {
+    nextTick(() => {
+      if (products.value.length > 0) setupInfiniteScroll()
+    })
+  }
+)
+
 onMounted(async () => {
   await Promise.all([
     loadProducts(),
     loadCategories()
   ])
+  await nextTick()
+  if (products.value.length > 0) setupInfiniteScroll()
+})
+
+onUnmounted(() => {
+  loadMoreObserver?.disconnect()
+  loadMoreObserver = null
 })
 </script>
 
@@ -599,10 +638,30 @@ onMounted(async () => {
   }
 }
 
+.products-list-wrap {
+  margin-bottom: var(--spacing-6);
+}
+
+.load-more-sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+.load-more-hint {
+  text-align: center;
+  padding: var(--spacing-3);
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  &.subtle {
+    color: var(--gray-400);
+    font-size: var(--font-size-xs);
+  }
+}
+
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: var(--spacing-6);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--spacing-4);
 
   &.list-view {
     grid-template-columns: 1fr;
@@ -612,9 +671,14 @@ onMounted(async () => {
 .product-card {
   transition: all var(--transition-normal);
   
+  &:deep(.card-body),
+  &:deep(.base-card__body) {
+    padding: var(--spacing-3);
+  }
+  
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
   }
   
   &.inactive {
@@ -627,43 +691,51 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--spacing-4);
+  margin-bottom: var(--spacing-2);
+  gap: var(--spacing-2);
 }
 
 .product-info {
   flex: 1;
+  min-width: 0;
   
   .product-name {
-    margin: 0 0 var(--spacing-1) 0;
-    font-size: var(--font-size-lg);
+    margin: 0 0 2px 0;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--primary-dark);
+    line-height: 1.25;
   }
   
   .product-sku {
-    margin: 0 0 var(--spacing-1) 0;
-    font-size: var(--font-size-sm);
+    margin: 0 0 2px 0;
+    font-size: var(--font-size-xs);
     color: var(--gray-500);
   }
 
   .product-category {
     margin: 0;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     color: var(--gray-600);
   }
 }
 
 .product-actions {
   display: flex;
-  gap: var(--spacing-2);
+  gap: var(--spacing-1);
   flex-wrap: wrap;
+  
+  :deep(.btn) {
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--font-size-xs);
+  }
 }
 
 .product-details {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--spacing-3);
-  margin-bottom: var(--spacing-4);
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-2);
 }
 
 .product-price,
@@ -681,13 +753,13 @@ onMounted(async () => {
   }
   
   .price-value {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--primary-dark);
   }
   
   .stock-value {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
     font-weight: 500;
     
     &.low-stock {
@@ -714,15 +786,19 @@ onMounted(async () => {
 }
 
 .product-description {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--gray-600);
-  line-height: 1.5;
-  margin-bottom: var(--spacing-4);
+  line-height: 1.4;
+  margin-bottom: var(--spacing-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .product-footer {
   border-top: 1px solid var(--gray-200);
-  padding-top: var(--spacing-3);
+  padding-top: var(--spacing-2);
   
   .product-meta {
     font-size: var(--font-size-xs);

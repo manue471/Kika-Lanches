@@ -1,18 +1,131 @@
 <template>
   <BaseModal
     :show="show"
-    :title="isEditing ? 'Editar Pedido' : 'Novo Pedido'"
-    size="lg"
+    :title="modalTitle"
+    :size="modalSize"
     @update:show="$emit('update:show', $event)"
   >
-    <!-- Loading overlay quando está carregando pedido para edição -->
-    <div v-if="isLoadingOrder && isEditing" class="loading-overlay">
+    <!-- Loading overlay ao carregar pedido (modo edição / formulário) -->
+    <div v-if="isLoadingOrder && isEditing && !isReadOnlyView" class="loading-overlay">
       <BaseLoading :show="true" message="Carregando pedido..." variant="inline" />
     </div>
-    
-    <form @submit.prevent="handleSubmit" class="order-form" :class="{ 'is-loading': isLoadingOrder && isEditing }">
+
+    <!-- Visualização somente leitura -->
+    <div v-if="isReadOnlyView" class="order-detail-view">
+      <div v-if="isLoadingOrder" class="detail-loading">
+        <BaseLoading :show="true" message="Carregando pedido..." variant="inline" />
+      </div>
+      <template v-else-if="originalOrder">
+        <div class="detail-hero">
+          <div class="detail-hero-main">
+            <span class="detail-order-num">{{ originalOrder.order_number }}</span>
+          </div>
+          <p class="detail-date">{{ formatDetailDateTime(originalOrder.created_at) }}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">Cliente</h4>
+          <div class="detail-card">
+            <dl class="detail-customer-dl">
+              <dt>Nome</dt>
+              <dd>{{ originalOrder.customer?.name || '—' }}</dd>
+              <dt>Telefone</dt>
+              <dd>{{ originalOrder.customer?.phone?.trim() || '—' }}</dd>
+              <dt>E-mail</dt>
+              <dd>{{ originalOrder.customer?.email?.trim() || '—' }}</dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="detail-section detail-grid-2">
+          <div>
+            <h4 class="detail-section-title">Pagamento</h4>
+            <div class="detail-card">
+              <p class="detail-strong">{{ getPaymentMethodLabel(originalOrder.payment_method) }}</p>
+              <p
+                v-if="originalOrder.payment_methods?.length"
+                class="detail-muted detail-tags"
+              >
+                <span v-for="m in originalOrder.payment_methods" :key="m" class="detail-tag">{{
+                  getPaymentMethodLabel(m)
+                }}</span>
+              </p>
+            </div>
+          </div>
+          <div>
+            <h4 class="detail-section-title">Valores</h4>
+            <div class="detail-card detail-values">
+              <div class="detail-value-row">
+                <span>Subtotal</span>
+                <span>{{ formatCurrency(Number(originalOrder.subtotal) || 0) }}</span>
+              </div>
+              <div v-if="Number(originalOrder.tax_amount) > 0" class="detail-value-row">
+                <span>Taxas / serviço</span>
+                <span>{{ formatCurrency(Number(originalOrder.tax_amount) || 0) }}</span>
+              </div>
+              <div v-if="Number(originalOrder.shipping_amount) > 0" class="detail-value-row">
+                <span>Entrega</span>
+                <span>{{ formatCurrency(Number(originalOrder.shipping_amount) || 0) }}</span>
+              </div>
+              <div class="detail-value-row detail-value-total">
+                <span>Total</span>
+                <span>{{ formatCurrency(Number(originalOrder.total_amount) || 0) }}</span>
+              </div>
+              <div
+                v-if="originalOrder.paid_amount != null && Number(originalOrder.paid_amount) > 0"
+                class="detail-value-row detail-value-paid"
+              >
+                <span>Pago</span>
+                <span>{{ formatCurrency(Number(originalOrder.paid_amount) || 0) }}</span>
+              </div>
+              <div
+                v-if="originalOrder.debt_amount != null && Number(originalOrder.debt_amount) > 0"
+                class="detail-value-row detail-value-debt"
+              >
+                <span>À prazo / saldo</span>
+                <span>{{ formatCurrency(Number(originalOrder.debt_amount) || 0) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section-title">Itens</h4>
+          <div class="detail-items">
+            <div class="detail-items-head">
+              <span>Produto</span>
+              <span>Qtd</span>
+              <span>Unit.</span>
+              <span>Total</span>
+            </div>
+            <div
+              v-for="item in orderProductsList"
+              :key="item.id ?? `${item.product_id}-${item.quantity}`"
+              class="detail-items-row"
+            >
+              <span class="detail-item-name">{{ orderLineProductName(item) }}</span>
+              <span>{{ item.quantity }}</span>
+              <span>{{ formatCurrency(Number(item.unit_price) || 0) }}</span>
+              <span class="detail-item-total">{{ formatCurrency(Number(item.total_price) || 0) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="originalOrder.notes?.trim()" class="detail-section">
+          <h4 class="detail-section-title">Observações</h4>
+          <div class="detail-card detail-notes">{{ originalOrder.notes }}</div>
+        </div>
+      </template>
+    </div>
+
+    <form
+      v-else
+      @submit.prevent="handleSubmit"
+      class="order-form"
+      :class="{ 'is-loading': isLoadingOrder && isEditing }"
+    >
       <!-- Customer Selection -->
-      <div class="form-section">
+      <div class="form-section order-modal-section">
         <h3 class="section-title">Cliente</h3>
         <div class="form-group">
           <label for="customer" class="form-label">Selecionar Cliente *</label>
@@ -41,7 +154,7 @@
       </div>
 
       <!-- Products Selection -->
-      <div class="form-section">
+      <div class="form-section order-modal-section">
         <h3 class="section-title">Produtos</h3>
         <div class="products-list">
           <div 
@@ -49,62 +162,68 @@
             :key="index"
             class="product-item"
           >
-            <div class="product-select">
-              <AutoComplete
-                :id="`product-${index}`"
-                :model-value="getProductForItem(item.product_id, index)"
-                :options="getProductOptions(index)"
-                :search-term="getProductSearchTerm(index)"
-                :is-loading="isProductSearching(index)"
-                placeholder="Digite o nome do produto..."
-                label-key="name"
-                value-key="id"
-                secondary-key="formatted_price"
-                :min-search-length="1"
-                :debounce-ms="500"
-                :show-initial-suggestions="true"
-                :filter-locally="false"
-                :initial-suggestions-limit="20"
-                @search="(term) => searchProductsForIndex(index, term)"
-                @select="(product) => handleProductSelect(index, product)"
-                @clear="() => handleProductClear(index)"
-                :error="errors[`products.${index}.product_id`]"
-                class="product-autocomplete"
-              />
-            </div>
-            <div class="quantity-input">
-              <BaseInput
-                v-model.number="item.quantity"
-                type="number"
-                :min="1"
-                :max="getMaxQuantity(item.product_id, index)"
-                placeholder="Qtd"
-                @input="calculateItemTotal()"
-                :error="getStockError(item.product_id, item.quantity, index)"
-              />
-              <div class="stock-info">
-                <span class="stock-label">Estoque:</span>
-                <span 
-                  class="stock-quantity"
-                  :class="getStockClass(item.product_id, index)"
-                >
-                  {{ getStockQuantity(item.product_id, index) }}
-                </span>
+            <!-- Linha 1: apenas o produto (full width no mobile) -->
+            <div class="product-item-line product-item-line--product">
+              <div class="product-select">
+                <AutoComplete
+                  :id="`product-${index}`"
+                  :model-value="getProductForItem(item.product_id, index)"
+                  :options="getProductOptions(index)"
+                  :search-term="getProductSearchTerm(index)"
+                  :is-loading="isProductSearching(index)"
+                  placeholder="Digite o nome do produto..."
+                  label-key="name"
+                  value-key="id"
+                  secondary-key="formatted_price"
+                  :min-search-length="1"
+                  :debounce-ms="500"
+                  :show-initial-suggestions="true"
+                  :filter-locally="false"
+                  :initial-suggestions-limit="20"
+                  @search="(term) => searchProductsForIndex(index, term)"
+                  @select="(product) => handleProductSelect(index, product)"
+                  @clear="() => handleProductClear(index)"
+                  :error="errors[`products.${index}.product_id`]"
+                  class="product-autocomplete"
+                />
               </div>
             </div>
-            <div class="price-display">
-              <div class="unit-price">{{ formatCurrency(getProductPrice(item.product_id, index)) }} cada</div>
-              <div class="total-price">{{ formatCurrency(getProductPrice(item.product_id, index) * item.quantity) }}</div>
+            <!-- Linha 2: qtd + estoque + preços + remover -->
+            <div class="product-item-line product-item-line--meta">
+              <div class="quantity-input">
+                <BaseInput
+                  v-model.number="item.quantity"
+                  type="number"
+                  :min="1"
+                  :max="getMaxQuantity(item.product_id, index)"
+                  placeholder="Qtd"
+                  @input="calculateItemTotal()"
+                  :error="getStockError(item.product_id, item.quantity, index)"
+                />
+                <div class="stock-info">
+                  <span class="stock-label">Estoque</span>
+                  <span 
+                    class="stock-quantity"
+                    :class="getStockClass(item.product_id, index)"
+                  >
+                    {{ getStockQuantity(item.product_id, index) }}
+                  </span>
+                </div>
+              </div>
+              <div class="price-display">
+                <span class="total-price">{{ formatCurrency(getProductPrice(item.product_id, index) * item.quantity) }}</span>
+              </div>
+              <BaseButton
+                type="button"
+                variant="danger"
+                size="sm"
+                class="product-remove-btn"
+                @click="removeProduct(index)"
+                v-if="form.products.length > 1"
+              >
+                Remover
+              </BaseButton>
             </div>
-            <BaseButton
-              type="button"
-              variant="danger"
-              size="sm"
-              @click="removeProduct(index)"
-              v-if="form.products.length > 1"
-            >
-              ✕
-            </BaseButton>
           </div>
           
           <BaseButton
@@ -118,21 +237,12 @@
         </div>
       </div>
 
-      <!-- Order Details -->
-      <div class="form-section">
-        <h3 class="section-title">Detalhes do Pedido</h3>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="status" class="form-label">Status</label>
-            <BaseSelect
-              id="status"
-              v-model="form.status"
-              :options="statusOptions"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="payment_method" class="form-label">Método de Pagamento Principal</label>
+      <!-- Order Details (status fixo na API: novo = confirmado; edição = mantém o do servidor) -->
+      <div class="form-section order-modal-section">
+        <h3 class="section-title">Pagamento</h3>
+        <div class="form-grid form-grid-payment">
+          <div class="form-group form-group-full">
+            <label for="payment_method" class="form-label">Método de pagamento *</label>
             <BaseSelect
               id="payment_method"
               v-model="form.payment_method"
@@ -242,7 +352,7 @@
       <div class="modal-actions">
         <div class="modal-actions-left">
           <BaseButton
-            v-if="isEditing && props.orderId"
+            v-if="props.orderId"
             variant="info"
             @click="showTicketForOrder"
             :loading="isOpeningTicket"
@@ -252,16 +362,13 @@
             Imprimir Ticket
           </BaseButton>
         </div>
-        
+
         <div class="modal-actions-right">
-          <BaseButton
-            type="button"
-            variant="secondary"
-            @click="$emit('update:show', false)"
-          >
-            Cancelar
+          <BaseButton type="button" variant="secondary" @click="$emit('update:show', false)">
+            {{ isReadOnlyView ? 'Fechar' : 'Cancelar' }}
           </BaseButton>
           <BaseButton
+            v-if="!isReadOnlyView"
             type="submit"
             variant="primary"
             :loading="isSubmitting"
@@ -330,14 +437,18 @@ import BaseLoading from '@/components/Base/Loading.vue'
 import AutoComplete from '@/components/Base/AutoComplete.vue'
 import ConfirmModal from '@/components/Base/ConfirmModal.vue'
 import TicketModal from './TicketModal.vue'
-import type { Order } from '@/types/api'
+import type { Order, OrderProduct } from '@/types/api'
 
 interface Props {
   show: boolean
   orderId?: number | null
+  /** Apenas leitura: exibe detalhes sem formulário (ex.: botão Ver na listagem) */
+  readonly?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false
+})
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
@@ -365,7 +476,6 @@ const form = ref({
   products: [
     { product_id: 0, quantity: 1 }
   ],
-  status: 'confirmed' as Order['status'],
   payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
   paid_amount: undefined as number | undefined,
   debt_amount: undefined as number | undefined,
@@ -378,6 +488,8 @@ const form = ref({
 const errors = ref<Record<string, string>>({})
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const isEditing = computed(() => !!props.orderId)
+const isReadOnlyView = computed(() => props.readonly === true && !!props.orderId)
+const modalSize = computed(() => (isReadOnlyView.value ? 'xl' : 'lg'))
 
 // Input temporário para paid_amount (permite digitação livre)
 const paidAmountInput = ref<string>('')
@@ -428,7 +540,7 @@ watch(() => form.value.paid_amount, (newValue) => {
   paidAmountInput.value = formatNumberInput(newValue)
 }, { immediate: true })
 
-// Store original order data to detect changes
+// Store original order data to detect changes / modo leitura
 const originalOrder = ref<Order | null>(null)
 
 // Stock confirmation modal
@@ -451,18 +563,51 @@ console.log('Initial stock confirm state:', showStockConfirm.value)
 // Computed
 const formatCurrency = currency
 
-const statusOptions = [
-  { value: 'confirmed', label: 'Confirmado' },
-  { value: 'paid', label: 'Pago' },
-  { value: 'cancelled', label: 'Cancelado' }
-]
-
 const paymentMethodOptions = [
   { value: 'cartao_credito', label: 'Cartão de Crédito' },
   { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
   { value: 'a_prazo', label: 'À Prazo' }
 ]
+
+const modalTitle = computed(() => {
+  if (isReadOnlyView.value) {
+    return originalOrder.value
+      ? `Pedido ${originalOrder.value.order_number}`
+      : 'Detalhes do pedido'
+  }
+  return isEditing.value ? 'Editar Pedido' : 'Novo Pedido'
+})
+
+const orderProductsList = computed<OrderProduct[]>(() => {
+  const o = originalOrder.value
+  if (!o) return []
+  const raw = (o as { order_products?: OrderProduct[] }).order_products
+  return Array.isArray(raw) ? raw : []
+})
+
+const getPaymentMethodLabel = (value: string) =>
+  paymentMethodOptions.find((o) => o.value === value)?.label || value
+
+const formatDetailDateTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short'
+    })
+  } catch {
+    return iso
+  }
+}
+
+function orderLineProductName(item: OrderProduct) {
+  if (item.product?.name) return item.product.name
+  const snap = item.product_snapshot
+  if (snap && typeof snap === 'object' && snap !== null && 'name' in snap) {
+    return String((snap as { name?: string }).name || 'Produto')
+  }
+  return 'Produto'
+}
 
 // Resolve product by ID; usa products.value ou selectedProduct da linha (produto vindo da busca API)
 const getProductById = (productId: number | string, index?: number) => {
@@ -638,7 +783,6 @@ const resetForm = () => {
     products: [
       { product_id: 0, quantity: 1 }
     ],
-    status: 'confirmed' as Order['status'],
     payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
     paid_amount: undefined,
     debt_amount: undefined,
@@ -669,20 +813,19 @@ watch(() => props.show, async (show) => {
     // If opening with an orderId, load the order data
     if (props.orderId) {
       try {
-
         const order = await getOrderById(props.orderId)
-
-        
-        // Store original order for comparison
         originalOrder.value = order
-        
+
+        if (props.readonly) {
+          return
+        }
+
         form.value = {
           customer_id: order.customer_id,
           products: (order as any).order_products?.map((item: any) => ({
             product_id: item.product_id,
             quantity: item.quantity
           })) || [{ product_id: 0, quantity: 1 }],
-          status: order.status,
           payment_method: order.payment_method,
           paid_amount: order.paid_amount,
           debt_amount: order.debt_amount,
@@ -713,6 +856,7 @@ watch(() => props.show, async (show) => {
         })
       } catch (error) {
         console.error('Error fetching order:', error)
+        originalOrder.value = null
         resetForm()
       }
     }
@@ -1113,6 +1257,14 @@ const handleSubmit = async () => {
   await submitOrder()
 }
 
+/** Status enviado à API: novos pedidos como confirmado; edição preserva o registro atual. */
+const statusForApiSubmit = (): Order['status'] => {
+  if (isEditing.value && originalOrder.value) {
+    return originalOrder.value.status
+  }
+  return 'confirmed'
+}
+
 const prepareOrderData = () => {
   // Prepare base order data
   const orderData: any = {
@@ -1121,7 +1273,8 @@ const prepareOrderData = () => {
     payment_method: form.value.payment_method,
     shipping_amount: roundCurrency(form.value.shipping_amount || 0),
     tax_amount: roundCurrency(form.value.tax_amount || 0),
-    notes: form.value.notes
+    notes: form.value.notes,
+    status: statusForApiSubmit()
   }
 
     // Add payment information according to payment type
@@ -1160,18 +1313,12 @@ const submitOrder = async () => {
     const orderData = prepareOrderData()
 
     if (isEditing.value && props.orderId) {
-      // Only include status if it changed
-      if (form.value.status !== originalOrder.value?.status) {
-        orderData.status = form.value.status
-      }
-      
       console.log('🚀 Sending update data to API:', orderData)
       console.log('🚀 Order ID:', props.orderId)
-      
+
       result = await updateOrder(props.orderId, orderData)
       console.log('✅ Update successful, result:', result)
     } else {
-      orderData.status = form.value.status
       console.log('🚀 Creating new order:', orderData)
       result = await createOrder(orderData)
       console.log('✅ Create successful, result:', result)
@@ -1218,7 +1365,7 @@ const showTicketForOrder = async () => {
       console.log('🎫 Showing ticket for existing order:', props.orderId)
       // Garantir que o pedido está carregado antes de abrir o modal
       if (!originalOrder.value) {
-        await getOrderById(props.orderId)
+        originalOrder.value = await getOrderById(props.orderId)
       }
       createdOrderId.value = props.orderId
       showTicketModal.value = true
@@ -1246,9 +1393,12 @@ const handleStockCancel = () => {
 
 <style lang="scss" scoped>
 .order-form {
-  .customer-autocomplete,
-  .product-autocomplete {
-    width: 100%;
+  .form-grid-payment {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group-full {
+    grid-column: 1 / -1;
   }
 
 .form-section {
@@ -1302,92 +1452,149 @@ const handleStockCancel = () => {
   .products-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-3);
+    gap: 4px;
   }
 
+  /* Card: mobile = 2 linhas (produto | meta); desktop = uma linha */
   .product-item {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto;
-    gap: var(--spacing-3);
-    align-items: start;
-    padding: var(--spacing-2);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    padding: var(--spacing-3);
     background: var(--gray-50);
     border-radius: var(--radius-md);
+    border: 1px solid var(--gray-100);
+  }
+
+  .product-item-line--meta {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--spacing-2);
+    width: 100%;
+    min-width: 0;
   }
 
   .product-select {
-    min-width: 200px;
+    width: 100%;
   }
 
   .quantity-input {
-    width: 80px;
-    position: relative;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    
-    .stock-info {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      margin-top: var(--spacing-1);
-      font-size: var(--font-size-xs);
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: var(--spacing-1);
-      justify-content: center;
-      flex-wrap: wrap;
-      z-index: 1;
-      
-      .stock-label {
-        color: var(--gray-600);
-        font-weight: 500;
-        white-space: nowrap;
-        font-size: 0.7rem;
+    gap: var(--spacing-2);
+    flex-shrink: 0;
+
+    :deep(.input-group) {
+      width: 4.25rem;
+      min-width: 4rem;
+    }
+
+    :deep(.input-wrapper input) {
+      text-align: center;
+      padding-left: var(--spacing-1);
+      padding-right: var(--spacing-1);
+    }
+  }
+
+  .stock-info {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    font-size: 0.7rem;
+    white-space: nowrap;
+
+    .stock-label {
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+
+    .stock-quantity {
+      font-weight: 700;
+
+      &.stock-ok {
+        color: var(--success);
       }
-      
-      .stock-quantity {
-        font-weight: 600;
-        font-size: 0.7rem;
-        
-        &.stock-ok {
-          color: var(--success);
-        }
-        
-        &.stock-low {
-          color: var(--warning);
-        }
-        
-        &.stock-empty {
-          color: var(--danger);
-        }
+
+      &.stock-low {
+        color: var(--warning);
       }
-      
-      .backorder-info {
-        color: var(--info);
-        font-style: italic;
-        font-size: 0.65rem;
-        white-space: nowrap;
+
+      &.stock-empty {
+        color: var(--danger);
       }
+    }
+
+    .backorder-info {
+      color: var(--info);
+      font-style: italic;
+      font-size: 0.65rem;
     }
   }
 
   .price-display {
-    min-width: 120px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
     text-align: right;
-    
+
     .unit-price {
-      font-size: var(--font-size-sm);
+      font-size: 0.75rem;
       color: var(--gray-600);
-      margin-bottom: var(--spacing-1);
+      white-space: nowrap;
     }
-    
+
+    .price-sep {
+      color: var(--gray-400);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
     .total-price {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--primary-dark);
-      font-size: var(--font-size-base);
+      font-size: var(--font-size-sm);
+      white-space: nowrap;
+    }
+  }
+
+  .product-remove-btn {
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 769px) {
+    .product-item {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      gap: var(--spacing-3);
+    }
+
+    .product-item-line--product {
+      flex: 1 1 auto;
+      min-width: 200px;
+      max-width: none;
+    }
+
+    .product-item-line--meta {
+      flex: 0 1 auto;
+      width: auto;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+    }
+
+    .price-display {
+      flex: 0 1 auto;
     }
   }
 
@@ -1508,25 +1715,53 @@ const handleStockCancel = () => {
   margin-right: var(--spacing-2);
 }
 
+.order-modal-section {
+  scroll-margin-top: var(--spacing-2);
+}
+
 // Mobile optimizations
 @media (max-width: 768px) {
   .order-form {
     .form-grid {
       grid-template-columns: 1fr;
     }
-    
-    .product-item {
-      grid-template-columns: 1fr;
-      gap: var(--spacing-2);
+
+    .form-section {
+      margin-bottom: var(--spacing-5);
+
+      .section-title {
+        font-size: var(--font-size-base);
+      }
     }
-    
-    .product-select,
+
+    /* product-item: já em coluna por padrão; meta em uma única linha */
+    .product-item-line--meta {
+      gap: var(--spacing-1);
+    }
+
     .quantity-input {
-      width: 100%;
+      gap: var(--spacing-1);
+
+      :deep(.input-wrapper input) {
+        min-height: 44px;
+      }
     }
-    
-    .price-display {
-      text-align: left;
+
+    .price-display .unit-price {
+      font-size: 0.7rem;
+    }
+
+    .price-display .total-price {
+      font-size: 0.8125rem;
+    }
+
+    .product-remove-btn {
+      padding-left: var(--spacing-2);
+      padding-right: var(--spacing-2);
+    }
+
+    .order-summary {
+      padding: var(--spacing-3);
     }
   }
 
@@ -1597,6 +1832,207 @@ const handleStockCancel = () => {
       color: var(--gray-700);
       font-weight: 600;
     }
+  }
+}
+
+// Modo somente leitura (detalhe do pedido)
+.order-detail-view {
+  min-height: 120px;
+}
+
+.detail-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-8);
+}
+
+.detail-hero {
+  margin-bottom: var(--spacing-6);
+  padding-bottom: var(--spacing-4);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.detail-hero-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.detail-order-num {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.detail-date {
+  margin: var(--spacing-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+}
+
+.detail-section {
+  margin-bottom: var(--spacing-5);
+}
+
+.detail-section-title {
+  margin: 0 0 var(--spacing-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-card {
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-4);
+  border: 1px solid var(--gray-200);
+}
+
+.detail-strong {
+  margin: 0 0 var(--spacing-1);
+  font-weight: 600;
+  color: var(--primary-dark);
+  font-size: var(--font-size-base);
+}
+
+.detail-muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+
+  & + & {
+    margin-top: var(--spacing-1);
+  }
+}
+
+.detail-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-4);
+}
+
+.detail-values .detail-value-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-4);
+  padding: var(--spacing-2) 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--gray-200);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.detail-value-total {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  padding-top: var(--spacing-2);
+  margin-top: var(--spacing-1);
+  border-top: 2px solid var(--gray-300);
+}
+
+.detail-value-paid span:last-child {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.detail-value-debt span:last-child {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.detail-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--gray-200);
+}
+
+.detail-items {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.detail-items-head,
+.detail-items-row {
+  display: grid;
+  grid-template-columns: 1fr 44px 88px 100px;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--font-size-sm);
+  align-items: center;
+}
+
+.detail-items-head {
+  background: var(--gray-100);
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.detail-items-row {
+  border-top: 1px solid var(--gray-100);
+}
+
+.detail-item-name {
+  word-break: break-word;
+}
+
+.detail-item-total {
+  font-weight: 600;
+  text-align: right;
+}
+
+.detail-notes {
+  white-space: pre-wrap;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.detail-customer-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--spacing-2) var(--spacing-4);
+  align-items: baseline;
+  font-size: var(--font-size-sm);
+
+  dt {
+    margin: 0;
+    color: var(--gray-600);
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--primary-dark);
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail-items-head,
+  .detail-items-row {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-item-total {
+    text-align: left;
   }
 }
 </style>

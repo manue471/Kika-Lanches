@@ -197,6 +197,14 @@ export interface Customer {
   updated_at?: string
 }
 
+/** Cliente eager-loaded em Order (GET /orders/{id}, PUT/PATCH, cancel, list) */
+export interface OrderCustomerEmbed {
+  id: number
+  name: string
+  phone?: string | null
+  email?: string | null
+}
+
 export interface OrderItem {
   product_id: number
   quantity: number
@@ -239,7 +247,7 @@ export interface Order {
   delivered_at?: string | null
   created_at: string
   updated_at: string
-  customer?: Customer
+  customer?: OrderCustomerEmbed
   user?: User | null
   order_products: OrderProduct[]
 }
@@ -351,12 +359,28 @@ export interface CategoryFilters {
   page?: number
 }
 
+/** Período pré-definido para GET /reports/sales (prioridade menor que start_date/end_date) */
+export type SalesReportPeriodPreset =
+  | 'last_week'
+  | 'last_15_days'
+  | 'last_month'
+  | 'last_quarter'
+
 export interface ReportFilters {
-  from: string
-  to: string
+  /** Preferido pelo backend */
+  start_date?: string
+  end_date?: string
+  period?: SalesReportPeriodPreset
+  /** Legado / compat */
+  from?: string
+  to?: string
   status?: Order['status']
   save_report?: boolean
   format?: 'json' | 'csv'
+  /** Filtro por vendedor (orders.user_id); ignorado se my_sales for true */
+  seller_id?: number
+  /** Apenas pedidos do usuário logado; seller_id é ignorado */
+  my_sales?: boolean
 }
 
 export interface FinancialReportFilters {
@@ -461,11 +485,31 @@ export interface MenuResponse {
   products: Product[]
 }
 
+/** Uma linha por item de pedido (GET /reports/sales) */
+export interface SalesReportLine {
+  customer_name: string
+  product_name: string
+  /** total_price da linha (decimal; API pode enviar string) */
+  amount: number | string
+  /** ISO 8601 — data/hora do pedido */
+  sold_at: string
+}
+
+/** Presente quando o relatório está filtrado por vendedor (my_sales ou seller_id) */
+export interface SalesReportSellerFilter {
+  user_id: number
+  name: string
+  self: boolean
+}
+
 export interface SalesReportResponse {
   period: {
     start_date: string
     end_date: string
   }
+  period_preset?: SalesReportPeriodPreset | null
+  period_preset_label?: string | null
+  seller_filter?: SalesReportSellerFilter | null
   summary: {
     total_sales: number
     total_orders: number
@@ -480,6 +524,12 @@ export interface SalesReportResponse {
     name: string
     total_quantity: number
     total_revenue: number
+  }>
+  /** Detalhamento por linha de pedido */
+  sales?: SalesReportLine[]
+  daily_sales?: Array<{
+    date: string
+    revenue: number
   }>
 }
 
@@ -617,6 +667,10 @@ export interface DailyProductsResponse {
     start: string
     end: string
   }
+  custom_range?: boolean
+  range_label?: string | null
+  start_at?: string | null
+  end_at?: string | null
   total_products_sold: number
   total_orders: number
   products: Array<{
@@ -627,4 +681,17 @@ export interface DailyProductsResponse {
     total_revenue: number
     unit_price: number
   }>
+}
+
+export interface CreditSalesSummary {
+  orders_count: number
+  total_debt_amount: number | string
+  start_at?: string
+  end_at?: string
+  [key: string]: unknown
+}
+
+export interface CreditSalesResponse {
+  summary: CreditSalesSummary
+  orders: PaginatedResponse<Order>
 }

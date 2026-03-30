@@ -36,7 +36,7 @@ interface Props {
   modelValue?: string | number
   label?: string
   placeholder?: string
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date' | 'search'
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date' | 'datetime-local' | 'search'
   disabled?: boolean
   readonly?: boolean
   required?: boolean
@@ -78,9 +78,6 @@ const id = computed(() => props.id || `input-${Math.random().toString(36).substr
 </script>
 
 <style lang="scss" scoped>
-.input-group {
-  margin-bottom: var(--spacing-4);
-}
 
 .input-label {
   display: block;

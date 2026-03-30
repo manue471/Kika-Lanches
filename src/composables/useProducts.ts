@@ -19,10 +19,17 @@ export function useProducts() {
   const sortOrder = ref<'asc' | 'desc'>('desc')
   const showOnlyActive = ref<boolean | undefined>(undefined)
   
+  const PRODUCTS_PER_PAGE = 24
+
   // State
   const products = ref<Product[]>([])
   const categories = ref<Category[]>([])
   const error = ref<string | null>(null)
+  const currentPage = ref(1)
+  const lastPage = ref(1)
+  const isLoadingMore = ref(false)
+
+  const hasMoreProducts = computed(() => currentPage.value < lastPage.value)
   
   // Computed
   const isLoading = computed(() => loading.isLoading.value)
@@ -38,32 +45,52 @@ export function useProducts() {
     }))
   })
   
-  // Methods
+  const buildListFilters = (page: number): ProductFilters => ({
+    search: searchTerm.value || undefined,
+    category_id: selectedCategory.value,
+    category_ids: selectedCategories.value.length > 0 ? selectedCategories.value : undefined,
+    min_price: minPrice.value,
+    max_price: maxPrice.value,
+    in_stock: inStock.value,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+    is_active: showOnlyActive.value,
+    per_page: PRODUCTS_PER_PAGE,
+    page
+  })
+
+  /** Recarrega da página 1 (filtros / busca) */
   const loadProducts = async () => {
     try {
       loading.setLoading(true)
       error.value = null
-      
-      const filters: ProductFilters = {
-        search: searchTerm.value || undefined,
-        category_id: selectedCategory.value,
-        category_ids: selectedCategories.value.length > 0 ? selectedCategories.value : undefined,
-        min_price: minPrice.value,
-        max_price: maxPrice.value,
-        in_stock: inStock.value,
-        sort_by: sortBy.value,
-        sort_order: sortOrder.value,
-        is_active: showOnlyActive.value,
-        per_page: 50
-      }
-      
-      const response = await productsService.list(filters)
+      currentPage.value = 1
+      const response = await productsService.list(buildListFilters(1))
       products.value = response.data
+      lastPage.value = response.last_page ?? 1
+      currentPage.value = response.current_page ?? 1
     } catch (err) {
       error.value = 'Erro ao carregar produtos'
       notifications.error('Erro ao carregar produtos')
     } finally {
       loading.setLoading(false)
+    }
+  }
+
+  /** Próxima página (scroll infinito) */
+  const loadMoreProducts = async () => {
+    if (!hasMoreProducts.value || isLoadingMore.value || loading.isLoading.value) return
+    const next = currentPage.value + 1
+    try {
+      isLoadingMore.value = true
+      const response = await productsService.list(buildListFilters(next))
+      products.value = [...products.value, ...response.data]
+      lastPage.value = response.last_page ?? lastPage.value
+      currentPage.value = response.current_page ?? next
+    } catch (err) {
+      notifications.error('Erro ao carregar mais produtos')
+    } finally {
+      isLoadingMore.value = false
     }
   }
   
@@ -224,6 +251,8 @@ export function useProducts() {
     sortOrder,
     showOnlyActive,
     error,
+    hasMoreProducts,
+    isLoadingMore,
     
     // Loading states
     isLoading,
@@ -237,6 +266,7 @@ export function useProducts() {
     
     // Methods
     loadProducts,
+    loadMoreProducts,
     loadCategories,
     createProduct,
     updateProduct,

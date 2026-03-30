@@ -128,9 +128,13 @@
             <span class="action-icon">➕</span>
             Gerenciar Produtos
           </button>
+          <button v-if="isAdmin" class="action-btn" @click="navigateTo('reports')">
+            <span class="action-icon">📊</span>
+            Relatórios
+          </button>
           <button v-if="isAdmin" class="action-btn" @click="navigateTo('customer-reports')">
-            <span class="action-icon">📈</span>
-            Ver Relatórios
+            <span class="action-icon">👤</span>
+            Relatório por cliente
           </button>
         </div>
       </BaseCard>

@@ -11,7 +11,8 @@ import type {
   DashboardResponse,
   CustomerReportResponse,
   CustomerReportPeriod,
-  DailyProductsResponse
+  DailyProductsResponse,
+  CreditSalesResponse
 } from '@/types/api'
 
 export class ReportsService {
@@ -44,21 +45,48 @@ export class ReportsService {
     return await apiClient.get<CustomerReportResponse>(url)
   }
 
-  /**
-   * Get sales report
-   */
-  async getSalesReport(filters: ReportFilters): Promise<SalesReportResponse> {
+  private buildSalesReportQueryParams(filters: ReportFilters): URLSearchParams {
     const params = new URLSearchParams()
-    
-    // Required parameters
-    if (filters.from) params.append('from', filters.from)
-    if (filters.to) params.append('to', filters.to)
-    
-    // Optional parameters
+    const start = filters.start_date ?? filters.from
+    const end = filters.end_date ?? filters.to
+    if (start) params.append('start_date', start)
+    if (end) params.append('end_date', end)
+    if (filters.period) params.append('period', filters.period)
     if (filters.status) params.append('status', filters.status)
     if (filters.save_report !== undefined) params.append('save_report', filters.save_report.toString())
+    if (filters.my_sales === true) {
+      params.append('my_sales', '1')
+    } else if (filters.seller_id != null && filters.seller_id > 0) {
+      params.append('seller_id', String(filters.seller_id))
+    }
+    return params
+  }
 
-    return await apiClient.get<SalesReportResponse>(`/reports/sales?${params.toString()}`)
+  /**
+   * Get sales report (JSON; inclui `sales` por linha de item quando a API enviar)
+   */
+  async getSalesReport(filters: ReportFilters): Promise<SalesReportResponse> {
+    const params = this.buildSalesReportQueryParams(filters)
+    const qs = params.toString()
+    return await apiClient.get<SalesReportResponse>(qs ? `/reports/sales?${qs}` : '/reports/sales')
+  }
+
+  /**
+   * PDF do relatório de vendas (mesmos filtros: start_date, end_date, period, status).
+   * `download=1` força download em vez de abrir no navegador.
+   */
+  async getSalesReportPdf(
+    filters: ReportFilters,
+    options?: { download?: boolean }
+  ): Promise<Blob> {
+    const params = this.buildSalesReportQueryParams(filters)
+    if (options?.download) params.append('download', '1')
+    const qs = params.toString()
+    const url = `/reports/sales/pdf${qs ? `?${qs}` : ''}`
+    const response = await apiClient.getRaw(url, {
+      responseType: 'blob'
+    })
+    return response.data
   }
 
   /**
@@ -155,7 +183,7 @@ export class ReportsService {
         tenant_id: 1,
         user_id: 1,
         type: 'sales',
-        name: `Relatório de Vendas - ${filters.from} a ${filters.to}`,
+        name: `Relatório de Vendas - ${filters.start_date ?? filters.from ?? ''} a ${filters.end_date ?? filters.to ?? ''}`,
         description: `Relatório gerado em ${new Date().toLocaleString('pt-BR')}`,
         filters,
         data: reportData,
@@ -367,41 +395,80 @@ export class ReportsService {
   }
 
   /**
-   * Get daily products sold
+   * Get daily products sold (date+period ou start_at+end_at com precedência no backend)
    */
   async getDailyProducts(options?: {
     date?: string
     period?: 'manha' | 'tarde'
+    start_at?: string
+    end_at?: string
   }): Promise<DailyProductsResponse> {
     const params = new URLSearchParams()
-    
-    if (options?.date) params.append('date', options.date)
-    if (options?.period) params.append('period', options.period)
-    
+    if (options?.start_at && options?.end_at) {
+      params.append('start_at', options.start_at)
+      params.append('end_at', options.end_at)
+    } else {
+      if (options?.date) params.append('date', options.date)
+      if (options?.period) params.append('period', options.period)
+    }
     const queryString = params.toString()
     const url = `/reports/daily-products${queryString ? `?${queryString}` : ''}`
-    
     return await apiClient.get<DailyProductsResponse>(url)
   }
 
   /**
-   * Get daily products sold report as PDF (same filters as getDailyProducts).
-   * Opens in new tab by default; use download: true to force download.
+   * Daily products PDF (mesmos filtros que getDailyProducts)
    */
   async getDailyProductsPdf(options?: {
     date?: string
     period?: 'manha' | 'tarde'
+    start_at?: string
+    end_at?: string
     download?: boolean
   }): Promise<Blob> {
     const params = new URLSearchParams()
-    
-    if (options?.date) params.append('date', options.date)
-    if (options?.period) params.append('period', options.period)
+    if (options?.start_at && options?.end_at) {
+      params.append('start_at', options.start_at)
+      params.append('end_at', options.end_at)
+    } else {
+      if (options?.date) params.append('date', options.date)
+      if (options?.period) params.append('period', options.period)
+    }
     if (options?.download) params.append('download', '1')
-    
     const queryString = params.toString()
     const url = `/reports/daily-products/pdf${queryString ? `?${queryString}` : ''}`
-    
+    const response = await apiClient.getRaw(url, {
+      responseType: 'blob'
+    })
+    return response.data
+  }
+
+  /**
+   * Pedidos com crédito à prazo não quitado (debt_amount > 0, método à prazo)
+   */
+  async getCreditSales(params: {
+    start_at: string
+    end_at: string
+    page?: number
+    per_page?: number
+  }): Promise<CreditSalesResponse> {
+    const q = new URLSearchParams()
+    q.append('start_at', params.start_at)
+    q.append('end_at', params.end_at)
+    if (params.page != null) q.append('page', String(params.page))
+    if (params.per_page != null) q.append('per_page', String(params.per_page))
+    return await apiClient.get<CreditSalesResponse>(`/reports/credit-sales?${q.toString()}`)
+  }
+
+  /**
+   * PDF: clientes ativos com saldo em aberto na conta à prazo (cadastro).
+   * Query opcional: download=1 para forçar download.
+   */
+  async getCreditDelinquentCustomersPdf(options?: { download?: boolean }): Promise<Blob> {
+    const params = new URLSearchParams()
+    if (options?.download) params.append('download', '1')
+    const qs = params.toString()
+    const url = `/reports/credit-delinquent-customers/pdf${qs ? `?${qs}` : ''}`
     const response = await apiClient.getRaw(url, {
       responseType: 'blob'
     })

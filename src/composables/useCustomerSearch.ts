@@ -2,7 +2,10 @@ import { ref, computed } from 'vue'
 import { customersService } from '@/services/api'
 import { useLoading } from '@/composables/useLoading'
 import { useNotifications } from '@/composables/useNotifications'
-import type { Customer } from '@/types/api'
+import type { Customer, OrderCustomerEmbed } from '@/types/api'
+
+/** Cliente na busca (completo) ou embutido no pedido (subset da API) */
+export type CustomerSelection = Customer | OrderCustomerEmbed
 
 export function useCustomerSearch() {
   const notifications = useNotifications()
@@ -11,7 +14,7 @@ export function useCustomerSearch() {
   // State
   const searchResults = ref<Customer[]>([])
   const searchTerm = ref('')
-  const selectedCustomer = ref<Customer | null>(null)
+  const selectedCustomer = ref<CustomerSelection | null>(null)
   const isSearching = ref(false)
   
   // Computed
@@ -45,7 +48,7 @@ export function useCustomerSearch() {
     }
   }
   
-  const selectCustomer = (customer: Customer) => {
+  const selectCustomer = (customer: CustomerSelection) => {
     selectedCustomer.value = customer
     searchTerm.value = customer.name
   }

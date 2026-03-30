@@ -73,10 +73,6 @@ const id = computed(() => props.id || `select-${Math.random().toString(36).subst
 </script>
 
 <style lang="scss" scoped>
-.select-group {
-  margin-bottom: var(--spacing-4);
-}
-
 .select-label {
   display: block;
   margin-bottom: var(--spacing-2);

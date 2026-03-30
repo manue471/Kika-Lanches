@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { reportsService } from '@/services/api'
 import { useLoading } from '@/composables/useLoading'
 import { useNotifications } from '@/composables/useNotifications'
-import type { Report, ReportFilters } from '@/types/api'
+import type { Report, ReportFilters, FinancialReportFilters } from '@/types/api'
 
 export function useReports() {
   const notifications = useNotifications()
@@ -38,7 +38,9 @@ export function useReports() {
     try {
       loading.setLoading(true)
       console.log('Fetching sales report with filters:', filters)
-      const response = await reportsService.getSalesReport(filters || { from: new Date().toISOString(), to: new Date().toISOString() })
+      const response = await reportsService.getSalesReport(
+        filters || { period: 'last_week' }
+      )
       salesReport.value = response
       console.log('Sales report response:', response)
       return response
@@ -51,7 +53,7 @@ export function useReports() {
     }
   }
   
-  const getFinancialReport = async (filters?: ReportFilters) => {
+  const getFinancialReport = async (filters?: FinancialReportFilters) => {
     try {
       loading.setLoading(true)
       const response = await reportsService.getFinancialReport(filters)
