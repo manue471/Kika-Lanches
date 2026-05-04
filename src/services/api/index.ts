@@ -6,6 +6,7 @@ export { productsService } from './products'
 export { customersService } from './customers'
 export { ordersService } from './orders'
 export { reportsService } from './reports'
+export { cashOutflowsService } from './cashOutflows'
 export { usersService } from './users'
 
 // Re-export types for convenience

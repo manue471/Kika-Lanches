@@ -38,6 +38,14 @@
       <button
         type="button"
         class="hub-tab"
+        :class="{ active: activeSection === 'cashbook' }"
+        @click="setSection('cashbook')"
+      >
+        Livro-caixa
+      </button>
+      <button
+        type="button"
+        class="hub-tab"
         :class="{ active: activeSection === 'more' }"
         @click="setSection('more')"
       >
@@ -237,6 +245,15 @@
     <!-- Produtos vendidos -->
     <div v-show="activeSection === 'products'" class="section-panel">
       <ReportsDailyProductsSection />
+    </div>
+
+    <!-- Livro-caixa -->
+    <div v-show="activeSection === 'cashbook'" class="section-panel">
+      <ReportsCashbookSection
+        :active="activeSection === 'cashbook'"
+        :can-pick-seller="canPickSeller"
+        :seller-users="sellerUsers"
+      />
     </div>
 
     <!-- Crédito à prazo -->
@@ -441,6 +458,7 @@ import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import ReportsDailyProductsSection from '@/components/Reports/ReportsDailyProductsSection.vue'
+import ReportsCashbookSection from '@/components/Reports/ReportsCashbookSection.vue'
 import type { SalesReportPeriodPreset, CreditSalesResponse, Order, ReportFilters, User } from '@/types/api'
 
 const route = useRoute()
@@ -473,7 +491,7 @@ const formatShortDate = (s: string) => {
   }
 }
 
-type HubSection = 'sales' | 'products' | 'credit' | 'more'
+type HubSection = 'sales' | 'products' | 'credit' | 'cashbook' | 'more'
 const activeSection = ref<HubSection>('sales')
 
 const salesFilterMode = ref<'preset' | 'dates'>('preset')
@@ -808,7 +826,7 @@ watch(
   () => route.query.section,
   (s) => {
     const v = String(s || '')
-    if (['sales', 'products', 'credit', 'more'].includes(v)) {
+    if (['sales', 'products', 'credit', 'cashbook', 'more'].includes(v)) {
       activeSection.value = v as HubSection
     }
   },
@@ -832,7 +850,7 @@ watch(activeSection, (s) => {
   if (s === 'credit' && !creditData.value && !creditLoading.value) {
     loadCreditSales(1)
   }
-  if (s === 'sales' && canPickSeller.value && sellerUsers.value.length === 0) {
+  if ((s === 'sales' || s === 'cashbook') && canPickSeller.value && sellerUsers.value.length === 0) {
     loadSellerUsersForReports()
   }
 })
@@ -840,7 +858,11 @@ watch(activeSection, (s) => {
 watch(
   canPickSeller,
   (ok) => {
-    if (ok && activeSection.value === 'sales' && sellerUsers.value.length === 0) {
+    if (
+      ok &&
+      (activeSection.value === 'sales' || activeSection.value === 'cashbook') &&
+      sellerUsers.value.length === 0
+    ) {
       loadSellerUsersForReports()
     }
   },

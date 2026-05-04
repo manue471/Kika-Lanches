@@ -132,6 +132,10 @@
             <span class="action-icon">📊</span>
             Relatórios
           </button>
+          <button v-if="isAdmin" class="action-btn" @click="goToCashbook">
+            <span class="action-icon">📒</span>
+            Livro-caixa
+          </button>
           <button v-if="isAdmin" class="action-btn" @click="navigateTo('customer-reports')">
             <span class="action-icon">👤</span>
             Relatório por cliente
@@ -165,6 +169,10 @@ const isAdmin = computed(() => userRole === 'admin' || userRole === 'tenant_owne
 // Navigation handler
 const navigateTo = (route: string) => {
   router.push({ name: route })
+}
+
+const goToCashbook = () => {
+  router.push({ name: 'reports', query: { section: 'cashbook' } })
 }
 
 const { currency } = useFormatter()

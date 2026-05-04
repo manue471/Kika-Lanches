@@ -621,6 +621,8 @@ export interface CustomerDebt {
   balance_before?: number
   balance_after?: number
   description?: string
+  /** Em quitações (type payment), quando existir */
+  payment_method?: 'pix' | 'dinheiro' | 'cartao_credito' | string | null
   created_at: string
   updated_at: string
   customer?: Customer
@@ -650,6 +652,7 @@ export interface CustomerDebtsResponse {
 
 export interface PayDebtRequest {
   amount: number
+  payment_method: 'pix' | 'dinheiro' | 'cartao_credito'
   description?: string
 }
 
@@ -657,6 +660,54 @@ export interface PayDebtResponse {
   message: string
   customer: Customer
   debt: CustomerDebt
+  payment_method_label?: string
+}
+
+/** Saída manual de caixa (cash_outflows) */
+export interface CashOutflow {
+  id: number
+  amount: number | string
+  note?: string | null
+  spent_at?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CashbookEntries {
+  orders_pix_dinheiro_in?: number | string
+  debt_payments_pix_dinheiro_in?: number | string
+  suggested_total_received_day?: number | string
+  manual_received_total?: number | string | null
+  manual_note?: string | null
+  confirmed_at?: string | null
+  confirmed_by?: { id: number; name?: string } | null
+  effective_received_total?: number | string
+}
+
+export interface CashbookSellerFilter {
+  user_id?: number
+  name?: string
+  self?: boolean
+}
+
+export interface CashbookResponse {
+  date?: string
+  timezone?: string
+  entries?: CashbookEntries
+  outflows?: {
+    manual_total?: number | string
+    items?: CashOutflow[]
+  }
+  net?: number | string
+  filters?: {
+    seller?: CashbookSellerFilter | null
+  }
+}
+
+export interface CashbookPutRequest {
+  date: string
+  manual_received_total: number | null
+  manual_note?: string | null
 }
 
 export interface DailyProductsResponse {

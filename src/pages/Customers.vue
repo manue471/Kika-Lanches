@@ -223,7 +223,7 @@
     <PayDebtModal
       :show="showPayDebtModal"
       :customer="customerToPayDebt"
-      @update:show="showPayDebtModal = $event"
+      @update:show="setPayDebtModalOpen"
       @success="handlePayDebtSuccess"
     />
   </div>
@@ -396,10 +396,18 @@ const openPayDebtModal = (customer: Customer) => {
   showPayDebtModal.value = true
 }
 
-const handlePayDebtSuccess = () => {
-  showPayDebtModal.value = false
-  customerToPayDebt.value = null
-  loadCustomers() // Refresh the list to update balances
+const setPayDebtModalOpen = (open: boolean) => {
+  showPayDebtModal.value = open
+  if (!open) customerToPayDebt.value = null
+}
+
+const handlePayDebtSuccess = async () => {
+  await loadCustomers()
+  const id = customerToPayDebt.value?.id
+  if (id) {
+    const updated = customers.value.find((c) => c.id === id)
+    if (updated) customerToPayDebt.value = updated
+  }
 }
 
 // Load customers on mount

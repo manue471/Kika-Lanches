@@ -5,7 +5,7 @@
     size="md"
     @update:show="$emit('update:show', $event)"
   >
-    <div v-if="customer" class="pay-debt-form">
+    <div v-if="customer && !receiptCtx" class="pay-debt-form">
       <!-- Customer Info -->
       <div class="customer-info-section">
         <h3 class="section-title">Cliente</h3>
@@ -29,6 +29,17 @@
       <div class="payment-section">
         <h3 class="section-title">Registrar Pagamento</h3>
         
+        <div class="form-group">
+          <BaseSelect
+            id="payment_method"
+            v-model="paymentForm.payment_method"
+            :options="paymentMethodOptions"
+            label="Forma de pagamento"
+            required
+            :error="errors.payment_method"
+          />
+        </div>
+
         <div class="form-group">
           <label for="amount" class="form-label">Valor do Pagamento (R$) *</label>
           <BaseInput
@@ -77,24 +88,67 @@
       </div>
     </div>
 
-    <template #footer>
-      <div class="modal-actions">
+    <div v-else-if="customer && receiptCtx" class="pay-debt-success">
+      <p class="success-title">Pagamento registrado</p>
+      <p class="success-text">Abra no navegador, baixe ou compartilhe o comprovante em PDF.</p>
+      <div class="receipt-actions">
         <BaseButton
           type="button"
           variant="secondary"
-          @click="$emit('update:show', false)"
+          :loading="receiptPdfLoading"
+          :disabled="isSharing"
+          @click="openReceiptPdf(false)"
         >
-          Cancelar
+          <span class="action-icon">📄</span>
+          Abrir PDF
         </BaseButton>
         <BaseButton
           type="button"
-          variant="primary"
-          :loading="isPayingDebt"
-          :disabled="!canSubmit"
-          @click="handleSubmit"
+          variant="secondary"
+          :loading="receiptPdfLoading"
+          :disabled="isSharing"
+          @click="openReceiptPdf(true)"
         >
-          Registrar Pagamento
+          <span class="action-icon">⬇️</span>
+          Baixar PDF
         </BaseButton>
+        <BaseButton
+          v-if="isShareSupported"
+          type="button"
+          variant="success"
+          :loading="receiptPdfLoading || isSharing"
+          :disabled="receiptPdfLoading || isSharing"
+          @click="shareReceiptPdf"
+        >
+          <span v-if="!(receiptPdfLoading || isSharing)" class="action-icon">📤</span>
+          {{ receiptPdfLoading || isSharing ? 'Gerando...' : 'Compartilhar' }}
+        </BaseButton>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="modal-actions">
+        <template v-if="receiptCtx">
+          <BaseButton type="button" variant="primary" @click="closeAfterReceipt">Fechar</BaseButton>
+        </template>
+        <template v-else>
+          <BaseButton
+            type="button"
+            variant="secondary"
+            @click="$emit('update:show', false)"
+          >
+            Cancelar
+          </BaseButton>
+          <BaseButton
+            type="button"
+            variant="primary"
+            :loading="isPayingDebt"
+            :disabled="!canSubmit"
+            @click="handleSubmit"
+          >
+            Registrar Pagamento
+          </BaseButton>
+        </template>
       </div>
     </template>
   </BaseModal>
@@ -102,11 +156,16 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useToast } from 'vue-toastification'
 import BaseModal from '@/components/Base/Modal.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseButton from '@/components/Base/Button.vue'
+import BaseSelect from '@/components/Base/Select.vue'
 import { useCustomerDebts } from '@/composables/useCustomerDebts'
 import { useFormatter } from '@/composables/useUtils'
+import { useWebShare } from '@/composables/useWebShare'
+import { customersService } from '@/services/api/customers'
+import type { PayDebtRequest } from '@/types/api'
 // Partial customer type (only what we need for this modal)
 interface CustomerBasic {
   id: number
@@ -127,22 +186,35 @@ const emit = defineEmits<{
   'success': []
 }>()
 
+const toast = useToast()
 const { payDebt, isPayingDebt, loadBalance } = useCustomerDebts()
 const { currency } = useFormatter()
+const { shareFile, isSupported: isShareSupported, isSharing } = useWebShare()
 
 const formatCurrency = currency
 
+const paymentMethodOptions = [
+  { value: 'pix', label: 'PIX' },
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'cartao_credito', label: 'Cartão de crédito' }
+]
+
 // Form state
 const paymentForm = ref({
+  payment_method: 'pix' as PayDebtRequest['payment_method'],
   amount: undefined as number | undefined,
   description: ''
 })
 
 const errors = ref<Record<string, string>>({})
 
+const receiptCtx = ref<{ customerId: number; debtId: number } | null>(null)
+const receiptPdfLoading = ref(false)
+
 // Computed
 const canSubmit = computed(() => {
   if (!props.customer) return false
+  if (!paymentForm.value.payment_method) return false
   if (!paymentForm.value.amount || paymentForm.value.amount <= 0) return false
   if (paymentForm.value.amount > (props.customer.balance || 0)) return false
   return true
@@ -163,6 +235,11 @@ const getRemainingBalanceClass = (): string => {
 const validateForm = (): boolean => {
   errors.value = {}
 
+  if (!paymentForm.value.payment_method) {
+    errors.value.payment_method = 'Selecione a forma de pagamento'
+    return false
+  }
+
   if (!paymentForm.value.amount || paymentForm.value.amount <= 0) {
     errors.value.amount = 'Valor do pagamento é obrigatório e deve ser maior que zero'
     return false
@@ -182,38 +259,97 @@ const validateForm = (): boolean => {
   return true
 }
 
+const debtReceiptFilename = () => `comprovante-quitacao-${receiptCtx.value?.debtId ?? 'recibo'}.pdf`
+
+const receiptShareTitle = () => {
+  const name = props.customer?.name
+  return name ? `Comprovante de quitação — ${name}` : 'Comprovante de quitação'
+}
+
+const openReceiptPdf = async (download: boolean) => {
+  if (!receiptCtx.value) return
+  receiptPdfLoading.value = true
+  try {
+    const blob = await customersService.getDebtReceiptPdf(
+      receiptCtx.value.customerId,
+      receiptCtx.value.debtId,
+      { download }
+    )
+    const url = URL.createObjectURL(blob)
+    if (download) {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = debtReceiptFilename()
+      link.click()
+      URL.revokeObjectURL(url)
+      toast.success('PDF baixado com sucesso')
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+  } catch (e: any) {
+    toast.error(e?.message || 'Erro ao gerar comprovante')
+  } finally {
+    receiptPdfLoading.value = false
+  }
+}
+
+const shareReceiptPdf = async () => {
+  if (!receiptCtx.value) return
+  receiptPdfLoading.value = true
+  try {
+    const blob = await customersService.getDebtReceiptPdf(
+      receiptCtx.value.customerId,
+      receiptCtx.value.debtId,
+      { download: false }
+    )
+    await shareFile(blob, debtReceiptFilename(), receiptShareTitle(), 'Comprovante de quitação (PDF)')
+  } catch (e: any) {
+    if (e?.name !== 'AbortError') {
+      toast.error(e?.message || 'Erro ao gerar PDF para compartilhar')
+    }
+  } finally {
+    receiptPdfLoading.value = false
+  }
+}
+
+const closeAfterReceipt = () => {
+  receiptCtx.value = null
+  emit('update:show', false)
+}
+
 const handleSubmit = async () => {
   if (!validateForm() || !props.customer) return
 
   try {
-    await payDebt(props.customer.id, {
+    const res = await payDebt(props.customer.id, {
       amount: paymentForm.value.amount!,
+      payment_method: paymentForm.value.payment_method,
       description: paymentForm.value.description || undefined
     })
 
-    // Reload balance to get updated value
     await loadBalance(props.customer.id)
 
+    receiptCtx.value = { customerId: props.customer.id, debtId: res.debt.id }
     emit('success')
-    emit('update:show', false)
-    
-    // Reset form
+
     paymentForm.value = {
+      payment_method: 'pix',
       amount: undefined,
       description: ''
     }
     errors.value = {}
   } catch (error: any) {
     console.error('Error paying debt:', error)
-    // Error is handled by the composable
   }
 }
 
 // Watch for modal show/hide
 watch(() => props.show, (show) => {
   if (!show) {
-    // Reset form when modal closes
+    receiptCtx.value = null
     paymentForm.value = {
+      payment_method: 'pix',
       amount: undefined,
       description: ''
     }
@@ -341,5 +477,34 @@ watch(() => props.show, (show) => {
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-3);
+}
+
+.pay-debt-success {
+  padding: var(--spacing-2) 0;
+  text-align: center;
+}
+
+.success-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--success-dark, #065f46);
+  margin: 0 0 var(--spacing-2);
+}
+
+.success-text {
+  margin: 0 0 var(--spacing-4);
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.receipt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-3);
+
+  .action-icon {
+    margin-right: var(--spacing-1);
+  }
 }
 </style>

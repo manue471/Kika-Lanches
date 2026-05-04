@@ -12,7 +12,9 @@ import type {
   CustomerReportResponse,
   CustomerReportPeriod,
   DailyProductsResponse,
-  CreditSalesResponse
+  CreditSalesResponse,
+  CashbookResponse,
+  CashbookPutRequest
 } from '@/types/api'
 
 export class ReportsService {
@@ -473,6 +475,28 @@ export class ReportsService {
       responseType: 'blob'
     })
     return response.data
+  }
+
+  /**
+   * Livro-caixa / prestação de contas do dia
+   */
+  async getCashbook(params: {
+    date: string
+    my_sales?: boolean
+    seller_id?: number
+  }): Promise<CashbookResponse> {
+    const q = new URLSearchParams()
+    q.append('date', params.date)
+    if (params.my_sales) q.append('my_sales', '1')
+    if (params.seller_id != null) q.append('seller_id', String(params.seller_id))
+    return await apiClient.get<CashbookResponse>(`/reports/cashbook?${q.toString()}`)
+  }
+
+  /**
+   * Ajuste manual do total recebido no livro-caixa
+   */
+  async putCashbook(body: CashbookPutRequest): Promise<CashbookResponse> {
+    return await apiClient.put<CashbookResponse>('/reports/cashbook', body)
   }
 }
 

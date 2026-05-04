@@ -234,11 +234,10 @@ const openPayDebtModal = () => {
   }
 }
 
-// Handle pay debt success
+// Após quitação: atualiza lista/saldo no relatório; o PayDebtModal permanece aberto na etapa do PDF até o usuário fechar.
 const handlePayDebtSuccess = async () => {
-  showPayDebtModal.value = false
   await loadDebtHistory()
-  emit('refresh') // Refresh the report to update customer balance
+  emit('refresh')
 }
 
 // PDF modal computed properties

@@ -68,6 +68,10 @@
                   <span v-else class="amount-payment">- {{ formatCurrency(debt.amount) }}</span>
                 </div>
               </div>
+              <div v-if="debt.type === 'payment'" class="debt-payment-method">
+                <span class="pm-label">Forma:</span>
+                <span class="pm-value">{{ formatPaymentMethod(debt) }}</span>
+              </div>
               <div v-if="debt.description" class="debt-description">
                 {{ debt.description }}
               </div>
@@ -145,6 +149,19 @@ const { currency, date } = useFormatter()
 
 const formatCurrency = (value: number) => currency(value)
 const formatDate = (dateValue: string | Date) => date(dateValue)
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: 'PIX',
+  dinheiro: 'Dinheiro',
+  cartao_credito: 'Cartão de crédito'
+}
+
+function formatPaymentMethod(debt: CustomerDebt): string {
+  if (debt.type !== 'payment') return '—'
+  const m = debt.payment_method
+  if (m == null || m === '') return '—'
+  return PAYMENT_METHOD_LABELS[String(m)] || String(m)
+}
 
 // Debt type filter options
 const debtTypeOptions = [
@@ -376,6 +393,17 @@ onMounted(() => {
         }
       }
       
+      .debt-payment-method {
+        font-size: var(--font-size-sm);
+        color: var(--gray-700);
+        margin-bottom: var(--spacing-2);
+
+        .pm-label {
+          font-weight: 600;
+          margin-right: var(--spacing-1);
+        }
+      }
+
       .debt-description {
         font-size: var(--font-size-sm);
         color: var(--gray-700);

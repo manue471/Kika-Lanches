@@ -192,6 +192,25 @@ export class CustomersService {
   async payDebt(customerId: number, data: PayDebtRequest): Promise<PayDebtResponse> {
     return await apiClient.post<PayDebtResponse>(`/customers/${customerId}/pay-debt`, data)
   }
+
+  /**
+   * PDF do comprovante de quitação (dívida tipo pagamento).
+   * Query opcional: download=1 para forçar download.
+   */
+  async getDebtReceiptPdf(
+    customerId: number,
+    debtId: number,
+    options?: { download?: boolean }
+  ): Promise<Blob> {
+    const params = new URLSearchParams()
+    if (options?.download) params.append('download', '1')
+    const qs = params.toString()
+    const url = `/customers/${customerId}/debts/${debtId}/receipt/pdf${qs ? `?${qs}` : ''}`
+    const response = await apiClient.getRaw(url, {
+      responseType: 'blob'
+    })
+    return response.data
+  }
 }
 
 // Export singleton instance
