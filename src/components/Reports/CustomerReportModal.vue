@@ -98,6 +98,7 @@
   <CustomerReportPDFModal
     :show="showCustomerPDFModal"
     :customer-id="customerId"
+    :customer-name="customerReport?.customer?.name"
     :options="pdfOptions"
     @update:show="handlePDFClose"
   />

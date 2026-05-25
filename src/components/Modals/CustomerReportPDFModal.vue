@@ -85,6 +85,7 @@ import { useWebShare } from '@/composables/useWebShare'
 interface Props {
   show: boolean
   customerId: number | null
+  customerName?: string | null
   options?: {
     limit?: number
     status?: string
@@ -118,7 +119,7 @@ const viewPDF = async () => {
   error.value = null
 
   try {
-    const pdfBlob = await reportsService.getCustomerReportPDF(props.customerId, props.options)
+    const { blob: pdfBlob } = await reportsService.getCustomerReportPDF(props.customerId, props.options)
     const pdfUrl = URL.createObjectURL(pdfBlob)
     
     // Open PDF in new tab
@@ -146,13 +147,15 @@ const downloadPDF = async () => {
   error.value = null
 
   try {
-    const pdfBlob = await reportsService.downloadCustomerReportPDF(props.customerId, props.options)
-    
-    // Create download link
+    const { blob: pdfBlob, filename } = await reportsService.downloadCustomerReportPDF(
+      props.customerId,
+      props.options
+    )
+
     const url = URL.createObjectURL(pdfBlob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `relatorio-cliente-${props.customerId}.pdf`
+    link.download = filename ?? 'relatorio-cliente.pdf'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -174,14 +177,18 @@ const sharePDF = async () => {
   if (!props.customerId) return
 
   try {
-    const pdfBlob = await reportsService.getCustomerReportPDF(props.customerId, props.options)
-    const filename = `relatorio-cliente-${props.customerId}.pdf`
-    
+    const { blob: pdfBlob, filename } = await reportsService.getCustomerReportPDF(
+      props.customerId,
+      props.options
+    )
+    const shareName = filename ?? 'relatorio-cliente.pdf'
+    const displayName = props.customerName?.trim() || `Cliente #${props.customerId}`
+
     await shareFile(
       pdfBlob,
-      filename,
-      `Relatório do Cliente #${props.customerId}`,
-      `Relatório detalhado do cliente ${props.customerId}`
+      shareName,
+      `Relatório — ${displayName}`,
+      `Relatório detalhado de ${displayName}`
     )
   } catch (err) {
     error.value = 'Erro ao compartilhar PDF do relatório'

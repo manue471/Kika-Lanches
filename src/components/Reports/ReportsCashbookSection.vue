@@ -4,6 +4,32 @@
       <div class="filters-row">
         <BaseInput v-model="cashDate" type="date" label="Data" @change="onFiltersChange" />
         <BaseButton variant="primary" :loading="loading" @click="loadCashbook">Atualizar</BaseButton>
+        <BaseButton
+          variant="secondary"
+          :loading="pdfLoading"
+          :disabled="loading"
+          @click="exportCashbookPdf(false)"
+        >
+          Abrir PDF
+        </BaseButton>
+        <BaseButton
+          variant="secondary"
+          :loading="pdfLoading"
+          :disabled="loading"
+          @click="exportCashbookPdf(true)"
+        >
+          Baixar PDF
+        </BaseButton>
+        <BaseButton
+          v-if="isShareSupported"
+          variant="success"
+          :disabled="loading || pdfLoading || isSharing"
+          :loading="isSharing"
+          @click="shareCashbookPdf"
+        >
+          <span v-if="!isSharing" class="share-icon">📤</span>
+          {{ pdfLoading || isSharing ? 'Gerando...' : 'Compartilhar' }}
+        </BaseButton>
       </div>
       <div v-if="canPickSeller" class="seller-block">
         <BaseSelect
@@ -43,6 +69,60 @@
       </BaseCard>
 
       <div class="reports-grid">
+        <BaseCard title="Recebimentos por forma de pagamento" class="report-card full-width">
+          <table class="payment-methods-table">
+            <thead>
+              <tr>
+                <th>Forma</th>
+                <th class="col-num">Pedidos (R$)</th>
+                <th class="col-num">Pag. débito (R$)</th>
+                <th class="col-num">Total (R$)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in paymentRows" :key="row.key">
+                <td>{{ row.label }}</td>
+                <td class="col-num">{{ formatCurrency(row.orders) }}</td>
+                <td class="col-num">{{ formatCurrency(row.debtPayments) }}</td>
+                <td class="col-num">{{ formatCurrency(row.total) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="payment-totals-row">
+                <td><strong>Total</strong></td>
+                <td class="col-num"><strong>{{ formatCurrency(paymentFooter.orders) }}</strong></td>
+                <td class="col-num"><strong>{{ formatCurrency(paymentFooter.debtPayments) }}</strong></td>
+                <td class="col-num"><strong>{{ formatCurrency(paymentFooter.total) }}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </BaseCard>
+
+        <BaseCard title="Resumo do dia" class="report-card full-width">
+          <div class="report-summary">
+            <div class="summary-item highlight-row">
+              <span class="summary-label" title="Entrada imediata no caixa (PIX + dinheiro)">Caixa (PIX + Dinheiro)</span>
+              <span class="summary-value xl">{{ formatCurrency(suggestedIn) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label" title="Inclui cartão (recebimento registrado no dia)">Total recebido</span>
+              <span class="summary-value">{{ formatCurrency(cashReceivedTotal) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label" title="Vendas fiado do dia — não entrou no caixa">À prazo (pedidos)</span>
+              <span class="summary-value">{{ formatCurrency(aPrazoOrders) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label" title="Despesas lançadas">Saídas</span>
+              <span class="summary-value negative">{{ formatCurrency(outflowsTotal) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label" title="Caixa efetivo − saídas">Líquido do dia</span>
+              <span class="summary-value" :class="netSummaryClass">{{ formatCurrency(netVal) }}</span>
+            </div>
+          </div>
+        </BaseCard>
+
         <BaseCard title="Recebido" class="report-card">
           <div class="report-summary">
             <div class="summary-item highlight-row gap-2">
@@ -50,16 +130,10 @@
               <span class="summary-value xl">{{ formatCurrency(effectiveIn) }}</span>
             </div>
             <div class="summary-item">
-              <span class="summary-label">Pedidos (PIX + dinheiro)</span>
-              <span class="summary-value">{{ formatCurrency(ordersIn) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Quitações à vista (PIX + dinheiro)</span>
-              <span class="summary-value">{{ formatCurrency(debtPayIn) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Sugestão do sistema (dia)</span>
-              <span class="summary-value">{{ formatCurrency(suggestedIn) }}</span>
+              <span class="summary-label" title="Valor usado no cálculo do líquido (manual ou sugestão)">
+                Caixa do dia (sugestão)
+              </span>
+              <span class="summary-value muted">{{ formatCurrency(suggestedIn) }}</span>
             </div>
           </div>
           <div v-if="manualChipVisible" class="manual-chips">
@@ -89,7 +163,7 @@
             </thead>
             <tbody>
               <tr v-for="row in outflowItems" :key="row.id">
-                <td>{{ formatCurrency(num(row.amount)) }}</td>
+                <td>{{ formatCurrency(cashbookNum(row.amount)) }}</td>
                 <td>{{ row.note || '—' }}</td>
                 <td>{{ formatOutflowWhen(row.spent_at || row.created_at) }}</td>
                 <td class="cell-actions">
@@ -105,13 +179,6 @@
               </tr>
             </tbody>
           </table>
-        </BaseCard>
-
-        <BaseCard title="Resultado do dia" class="report-card">
-          <div class="net-block" :class="netClass">
-            <span class="net-label">Líquido (recebido − saídas)</span>
-            <span class="net-value">{{ formatCurrency(netVal) }}</span>
-          </div>
         </BaseCard>
       </div>
     </template>
@@ -173,6 +240,12 @@ import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import BaseModal from '@/components/Base/Modal.vue'
 import { useFormatter } from '@/composables/useUtils'
+import { useWebShare } from '@/composables/useWebShare'
+import {
+  buildPaymentMethodRows,
+  cashbookNum,
+  paymentMethodFooterTotals
+} from '@/utils/cashbook'
 import type { CashbookResponse, CashOutflow, User } from '@/types/api'
 
 const props = withDefaults(
@@ -187,12 +260,7 @@ const props = withDefaults(
 const toast = useToast()
 const { currency, date } = useFormatter()
 const formatCurrency = currency
-
-function num(v: unknown): number {
-  if (v == null || v === '') return 0
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
+const { shareFile, isSupported: isShareSupported, isSharing } = useWebShare()
 
 const todayStr = () => {
   const d = new Date()
@@ -207,6 +275,7 @@ const sellerSelection = ref('')
 const cashbook = ref<CashbookResponse | null>(null)
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
+const pdfLoading = ref(false)
 
 const showAdjustModal = ref(false)
 const adjustForm = ref({ total: 0 as number, note: '' })
@@ -230,20 +299,23 @@ const sellerSelectOptions = computed(() => {
 
 const entries = computed(() => cashbook.value?.entries)
 
-const ordersIn = computed(() => num(entries.value?.orders_pix_dinheiro_in))
-const debtPayIn = computed(() => num(entries.value?.debt_payments_pix_dinheiro_in))
-const suggestedIn = computed(() => num(entries.value?.suggested_total_received_day))
-const effectiveIn = computed(() => num(entries.value?.effective_received_total))
+const paymentRows = computed(() => buildPaymentMethodRows(entries.value))
+const paymentFooter = computed(() => paymentMethodFooterTotals(paymentRows.value))
+
+const suggestedIn = computed(() => cashbookNum(entries.value?.suggested_total_received_day))
+const cashReceivedTotal = computed(() => cashbookNum(entries.value?.cash_received_total))
+const aPrazoOrders = computed(() => cashbookNum(entries.value?.orders_by_method?.a_prazo))
+const effectiveIn = computed(() => cashbookNum(entries.value?.effective_received_total))
 
 const outflowItems = computed<CashOutflow[]>(() => cashbook.value?.outflows?.items ?? [])
-const outflowsTotal = computed(() => num(cashbook.value?.outflows?.manual_total))
+const outflowsTotal = computed(() => cashbookNum(cashbook.value?.outflows?.manual_total))
 
-const netVal = computed(() => num(cashbook.value?.net))
+const netVal = computed(() => cashbookNum(cashbook.value?.net))
 
-const netClass = computed(() => {
-  if (netVal.value > 0) return 'net-pos'
-  if (netVal.value < 0) return 'net-neg'
-  return 'net-zero'
+const netSummaryClass = computed(() => {
+  if (netVal.value > 0) return 'positive'
+  if (netVal.value < 0) return 'negative'
+  return ''
 })
 
 const sellerBanner = computed(() => {
@@ -314,6 +386,10 @@ function buildCashbookParams(): { date: string; my_sales?: boolean; seller_id?: 
   return q
 }
 
+function cashbookPdfFilename(serverFilename?: string | null): string {
+  return serverFilename ?? `relatorio-financeiro-${cashDate.value}.pdf`
+}
+
 async function loadCashbook() {
   if (!props.active) return
   loading.value = true
@@ -333,6 +409,44 @@ function onFiltersChange() {
   if (props.active) loadCashbook()
 }
 
+const exportCashbookPdf = async (download: boolean) => {
+  pdfLoading.value = true
+  try {
+    const { blob, filename } = await reportsService.getCashbookPdf(buildCashbookParams(), { download })
+    const url = URL.createObjectURL(blob)
+    const name = cashbookPdfFilename(filename)
+    if (download) {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = name
+      link.click()
+      toast.success('PDF baixado com sucesso')
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+    URL.revokeObjectURL(url)
+  } catch (e: any) {
+    toast.error(e?.message || 'Erro ao gerar PDF do livro-caixa')
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+const shareCashbookPdf = async () => {
+  pdfLoading.value = true
+  try {
+    const { blob, filename } = await reportsService.getCashbookPdf(buildCashbookParams(), { download: false })
+    const title = `Livro-caixa — ${cashDate.value}`
+    await shareFile(blob, cashbookPdfFilename(filename), title, 'Relatório financeiro (PDF)')
+  } catch (e: any) {
+    if (e?.name !== 'AbortError') {
+      toast.error(e?.message || 'Erro ao gerar PDF para compartilhar')
+    }
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
 watch(
   () => props.active,
   (v) => {
@@ -344,7 +458,7 @@ watch(
 function defaultAdjustTotal(): number {
   const e = entries.value
   if (e?.manual_received_total != null && e.manual_received_total !== '') {
-    return num(e.manual_received_total)
+    return cashbookNum(e.manual_received_total)
   }
   const s = suggestedIn.value
   if (s > 0) return s
@@ -478,25 +592,76 @@ async function removeOutflow(id: number) {
   gap: var(--spacing-4);
 }
 
-.summary-item {
-  display: flex;
-  gap: var(--spacing-2);
-  align-items: center;
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-4);
 }
 
-.report-summary .summary-item.highlight-row .summary-value.xl {
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.summary-item.highlight-row .summary-value.xl {
   font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--primary-dark);
 }
 
-.summary-item.full {
-  grid-column: 1 / -1;
+.summary-label {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
 }
 
-.summary-value.muted {
-  color: var(--gray-600);
-  font-weight: 400;
+.summary-value {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--primary-dark);
+
+  &.positive {
+    color: var(--success, #059669);
+  }
+
+  &.negative {
+    color: var(--danger, #dc2626);
+  }
+
+  &.muted {
+    color: var(--gray-600);
+    font-weight: 500;
+    font-size: var(--font-size-base);
+  }
+}
+
+.payment-methods-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+
+  th,
+  td {
+    text-align: left;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  th {
+    color: var(--gray-600);
+    font-weight: 600;
+  }
+
+  .col-num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  tfoot .payment-totals-row td {
+    border-top: 2px solid var(--gray-200);
+    border-bottom: none;
+    padding-top: var(--spacing-3);
+  }
 }
 
 .manual-chips {
@@ -574,45 +739,6 @@ async function removeOutflow(id: number) {
     text-align: right;
     white-space: nowrap;
   }
-}
-
-.net-block {
-  padding: var(--spacing-4);
-  border-radius: var(--radius-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-
-  &.net-pos {
-    background: var(--success-light, #d1fae5);
-    .net-value {
-      color: var(--success-dark, #065f46);
-    }
-  }
-
-  &.net-neg {
-    background: #fee2e2;
-    .net-value {
-      color: #991b1b;
-    }
-  }
-
-  &.net-zero {
-    background: var(--gray-50);
-    .net-value {
-      color: var(--gray-800);
-    }
-  }
-}
-
-.net-label {
-  font-size: var(--font-size-sm);
-  color: var(--gray-700);
-}
-
-.net-value {
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
 }
 
 .seller-filter-card {

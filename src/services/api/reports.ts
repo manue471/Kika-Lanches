@@ -1,6 +1,8 @@
+import type { AxiosResponse } from 'axios'
 import { apiClient } from './client'
-import type { 
-  Report, 
+import { filenameFromContentDisposition } from '@/utils/http'
+import type {
+  Report,
   PaginatedResponse,
   ReportFilters,
   FinancialReportFilters,
@@ -14,8 +16,17 @@ import type {
   DailyProductsResponse,
   CreditSalesResponse,
   CashbookResponse,
-  CashbookPutRequest
+  CashbookPutRequest,
+  PdfBlobResult
 } from '@/types/api'
+
+function pdfBlobFromResponse(response: AxiosResponse<Blob>): PdfBlobResult {
+  const disposition = response.headers['content-disposition'] as string | undefined
+  return {
+    blob: response.data,
+    filename: filenameFromContentDisposition(disposition ?? null)
+  }
+}
 
 export class ReportsService {
   /**
@@ -342,23 +353,23 @@ export class ReportsService {
       to_date?: string
       period?: string
     }
-  ): Promise<Blob> {
+  ): Promise<PdfBlobResult> {
     const params = new URLSearchParams()
-    
+
     if (options?.limit) params.append('limit', options.limit.toString())
     if (options?.status) params.append('status', options.status)
     if (options?.payment_method) params.append('payment_method', options.payment_method)
     if (options?.from_date) params.append('from_date', options.from_date)
     if (options?.to_date) params.append('to_date', options.to_date)
     if (options?.period) params.append('period', options.period)
-    
+
     const queryString = params.toString()
     const url = `/reports/customer/${customerId}/pdf${queryString ? `?${queryString}` : ''}`
-    
+
     const response = await apiClient.getRaw(url, {
       responseType: 'blob'
     })
-    return response.data
+    return pdfBlobFromResponse(response)
   }
 
   /**
@@ -374,26 +385,25 @@ export class ReportsService {
       to_date?: string
       period?: string
     }
-  ): Promise<Blob> {
+  ): Promise<PdfBlobResult> {
     const params = new URLSearchParams()
-    
-    // Add download parameter
+
     params.append('download', 'true')
-    
+
     if (options?.limit) params.append('limit', options.limit.toString())
     if (options?.status) params.append('status', options.status)
     if (options?.payment_method) params.append('payment_method', options.payment_method)
     if (options?.from_date) params.append('from_date', options.from_date)
     if (options?.to_date) params.append('to_date', options.to_date)
     if (options?.period) params.append('period', options.period)
-    
+
     const queryString = params.toString()
     const url = `/reports/customer/${customerId}/pdf?${queryString}`
-    
+
     const response = await apiClient.getRaw(url, {
       responseType: 'blob'
     })
-    return response.data
+    return pdfBlobFromResponse(response)
   }
 
   /**
@@ -497,6 +507,25 @@ export class ReportsService {
    */
   async putCashbook(body: CashbookPutRequest): Promise<CashbookResponse> {
     return await apiClient.put<CashbookResponse>('/reports/cashbook', body)
+  }
+
+  /**
+   * PDF do livro-caixa (mesmos filtros que getCashbook).
+   * `download=1` força download em vez de abrir no navegador.
+   */
+  async getCashbookPdf(
+    params: { date: string; my_sales?: boolean; seller_id?: number },
+    options?: { download?: boolean }
+  ): Promise<PdfBlobResult> {
+    const q = new URLSearchParams()
+    q.append('date', params.date)
+    if (params.my_sales) q.append('my_sales', '1')
+    if (params.seller_id != null) q.append('seller_id', String(params.seller_id))
+    if (options?.download) q.append('download', '1')
+    const response = await apiClient.getRaw(`/reports/cashbook/pdf?${q.toString()}`, {
+      responseType: 'blob'
+    })
+    return pdfBlobFromResponse(response)
   }
 }
 

@@ -674,14 +674,23 @@ export interface CashOutflow {
 }
 
 export interface CashbookEntries {
+  orders_by_method?: Partial<Record<string, number | string>>
+  debt_payments_by_method?: Partial<Record<string, number | string>>
+  totals_by_method?: Partial<Record<string, number | string>>
   orders_pix_dinheiro_in?: number | string
   debt_payments_pix_dinheiro_in?: number | string
   suggested_total_received_day?: number | string
+  cash_received_total?: number | string
   manual_received_total?: number | string | null
   manual_note?: string | null
   confirmed_at?: string | null
   confirmed_by?: { id: number; name?: string } | null
   effective_received_total?: number | string
+}
+
+export interface PdfBlobResult {
+  blob: Blob
+  filename: string | null
 }
 
 export interface CashbookSellerFilter {
