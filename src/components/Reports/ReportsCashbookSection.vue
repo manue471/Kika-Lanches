@@ -1,8 +1,58 @@
 <template>
   <div class="cashbook-section">
     <BaseCard class="filters-card">
-      <div class="filters-row">
+      <div class="mode-row">
+        <label class="radio-label">
+          <input v-model="filterMode" type="radio" value="simple" />
+          Data e período do dia
+        </label>
+        <label class="radio-label">
+          <input v-model="filterMode" type="radio" value="range" />
+          Intervalo customizado (data e hora)
+        </label>
+      </div>
+
+      <div v-if="filterMode === 'simple'" class="filters-row">
         <BaseInput v-model="cashDate" type="date" label="Data" @change="onFiltersChange" />
+        <BaseSelect
+          v-model="periodFilter"
+          :options="periodOptions"
+          label="Período"
+          placeholder="Período"
+          @change="onFiltersChange"
+        />
+        <BaseButton variant="primary" :loading="loading" @click="loadCashbook">Atualizar</BaseButton>
+        <BaseButton
+          variant="secondary"
+          :loading="pdfLoading"
+          :disabled="loading"
+          @click="exportCashbookPdf(false)"
+        >
+          Abrir PDF
+        </BaseButton>
+        <BaseButton
+          variant="secondary"
+          :loading="pdfLoading"
+          :disabled="loading"
+          @click="exportCashbookPdf(true)"
+        >
+          Baixar PDF
+        </BaseButton>
+        <BaseButton
+          v-if="isShareSupported"
+          variant="success"
+          :disabled="loading || pdfLoading || isSharing"
+          :loading="isSharing"
+          @click="shareCashbookPdf"
+        >
+          <span v-if="!isSharing" class="share-icon">📤</span>
+          {{ pdfLoading || isSharing ? 'Gerando...' : 'Compartilhar' }}
+        </BaseButton>
+      </div>
+
+      <div v-else class="filters-row range-row">
+        <BaseInput v-model="rangeStart" type="datetime-local" label="Início" @change="onFiltersChange" />
+        <BaseInput v-model="rangeEnd" type="datetime-local" label="Fim" @change="onFiltersChange" />
         <BaseButton variant="primary" :loading="loading" @click="loadCashbook">Atualizar</BaseButton>
         <BaseButton
           variant="secondary"
@@ -68,6 +118,13 @@
         </p>
       </BaseCard>
 
+      <BaseCard v-if="periodBanner" class="report-card full-width period-banner-card">
+        <p class="period-banner">
+          <span class="period-banner-label">Período</span>
+          <strong>{{ periodBanner }}</strong>
+        </p>
+      </BaseCard>
+
       <div class="reports-grid">
         <BaseCard title="Recebimentos por forma de pagamento" class="report-card full-width">
           <table class="payment-methods-table">
@@ -98,18 +155,18 @@
           </table>
         </BaseCard>
 
-        <BaseCard title="Resumo do dia" class="report-card full-width">
+        <BaseCard :title="summaryTitle" class="report-card full-width">
           <div class="report-summary">
             <div class="summary-item highlight-row">
               <span class="summary-label" title="Entrada imediata no caixa (PIX + dinheiro)">Caixa (PIX + Dinheiro)</span>
               <span class="summary-value xl">{{ formatCurrency(suggestedIn) }}</span>
             </div>
             <div class="summary-item">
-              <span class="summary-label" title="Inclui cartão (recebimento registrado no dia)">Total recebido</span>
+              <span class="summary-label" title="Inclui cartão (recebimento registrado no período)">Total recebido</span>
               <span class="summary-value">{{ formatCurrency(cashReceivedTotal) }}</span>
             </div>
             <div class="summary-item">
-              <span class="summary-label" title="Vendas fiado do dia — não entrou no caixa">À prazo (pedidos)</span>
+              <span class="summary-label" title="Vendas fiado do período — não entrou no caixa">À prazo (pedidos)</span>
               <span class="summary-value">{{ formatCurrency(aPrazoOrders) }}</span>
             </div>
             <div class="summary-item">
@@ -117,7 +174,7 @@
               <span class="summary-value negative">{{ formatCurrency(outflowsTotal) }}</span>
             </div>
             <div class="summary-item">
-              <span class="summary-label" title="Caixa efetivo − saídas">Líquido do dia</span>
+              <span class="summary-label" :title="`Caixa efetivo − saídas`">Líquido {{ isFullDay ? 'do dia' : 'do período' }}</span>
               <span class="summary-value" :class="netSummaryClass">{{ formatCurrency(netVal) }}</span>
             </div>
           </div>
@@ -131,17 +188,20 @@
             </div>
             <div class="summary-item">
               <span class="summary-label" title="Valor usado no cálculo do líquido (manual ou sugestão)">
-                Caixa do dia (sugestão)
+                Caixa {{ isFullDay ? 'do dia' : 'do período' }} (sugestão)
               </span>
               <span class="summary-value muted">{{ formatCurrency(suggestedIn) }}</span>
             </div>
           </div>
-          <div v-if="manualChipVisible" class="manual-chips">
+          <div v-if="isFullDay && manualChipVisible" class="manual-chips">
             <span class="chip chip-warn">Ajustado manualmente</span>
             <span v-if="entries?.manual_note" class="chip chip-note">Nota: {{ entries.manual_note }}</span>
             <span v-if="confirmedLabel" class="chip chip-muted">{{ confirmedLabel }}</span>
           </div>
-          <div class="card-actions">
+          <p v-if="!isFullDay" class="partial-hint">
+            Ajuste manual do total recebido está disponível apenas para o dia inteiro.
+          </p>
+          <div v-if="isFullDay" class="card-actions">
             <BaseButton variant="secondary" size="sm" @click="openAdjustModal">Corrigir total recebido</BaseButton>
           </div>
         </BaseCard>
@@ -151,7 +211,7 @@
             <span class="outflows-total">Total saídas: {{ formatCurrency(outflowsTotal) }}</span>
             <BaseButton variant="primary" size="sm" @click="openOutflowModal">Registrar saída</BaseButton>
           </div>
-          <div v-if="!outflowItems.length" class="empty-inline">Nenhuma saída registrada neste dia.</div>
+          <div v-if="!outflowItems.length" class="empty-inline">Nenhuma saída registrada neste período.</div>
           <table v-else class="outflows-table">
             <thead>
               <tr>
@@ -184,7 +244,7 @@
     </template>
 
     <BaseCard v-else-if="!loading && active" class="hint-card">
-      <p>Selecione a data e clique em Atualizar para carregar o livro-caixa.</p>
+      <p>Selecione o período e clique em Atualizar para carregar o livro-caixa.</p>
     </BaseCard>
 
     <BaseModal :show="showAdjustModal" title="Corrigir total recebido" size="md" @update:show="showAdjustModal = $event">
@@ -246,7 +306,7 @@ import {
   cashbookNum,
   paymentMethodFooterTotals
 } from '@/utils/cashbook'
-import type { CashbookResponse, CashOutflow, User } from '@/types/api'
+import type { CashbookFilters, CashbookResponse, CashOutflow, User } from '@/types/api'
 
 const props = withDefaults(
   defineProps<{
@@ -271,6 +331,28 @@ const todayStr = () => {
 }
 
 const cashDate = ref(todayStr())
+const filterMode = ref<'simple' | 'range'>('simple')
+const periodFilter = ref<'manha' | 'tarde' | ''>('')
+const periodOptions = [
+  { value: '', label: 'Dia inteiro' },
+  { value: 'manha', label: 'Manhã (06:00 – 11:00)' },
+  { value: 'tarde', label: 'Tarde (12:00 – 17:00)' }
+]
+
+function defaultRangeInputs() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return {
+    start: `${y}-${m}-${day}T06:00`,
+    end: `${y}-${m}-${day}T23:59`
+  }
+}
+const defaultRange = defaultRangeInputs()
+const rangeStart = ref(defaultRange.start)
+const rangeEnd = ref(defaultRange.end)
+
 const sellerSelection = ref('')
 const cashbook = ref<CashbookResponse | null>(null)
 const loading = ref(false)
@@ -298,6 +380,20 @@ const sellerSelectOptions = computed(() => {
 })
 
 const entries = computed(() => cashbook.value?.entries)
+
+const isFullDay = computed(
+  () => filterMode.value === 'simple' && !periodFilter.value
+)
+
+const summaryTitle = computed(() => (isFullDay.value ? 'Resumo do dia' : 'Resumo do período'))
+
+const periodBanner = computed(() => {
+  const cb = cashbook.value
+  if (!cb) return ''
+  if (cb.range_label) return cb.range_label
+  if (cb.period_label) return cb.period_label
+  return ''
+})
 
 const paymentRows = computed(() => buildPaymentMethodRows(entries.value))
 const paymentFooter = computed(() => paymentMethodFooterTotals(paymentRows.value))
@@ -375,8 +471,20 @@ function formatOutflowWhen(s?: string | null) {
   }
 }
 
-function buildCashbookParams(): { date: string; my_sales?: boolean; seller_id?: number } {
-  const q: { date: string; my_sales?: boolean; seller_id?: number } = { date: cashDate.value }
+function toApiIsoDateTime(local: string): string {
+  if (!local) return ''
+  return local.length === 16 ? `${local}:00` : local
+}
+
+function buildCashbookParams(): CashbookFilters {
+  const q: CashbookFilters = {}
+  if (filterMode.value === 'range' && rangeStart.value && rangeEnd.value) {
+    q.start_at = toApiIsoDateTime(rangeStart.value)
+    q.end_at = toApiIsoDateTime(rangeEnd.value)
+  } else {
+    q.date = cashDate.value
+    if (periodFilter.value) q.period = periodFilter.value
+  }
   if (props.canPickSeller) {
     if (sellerSelection.value === '__me__') q.my_sales = true
     else if (sellerSelection.value && /^\d+$/.test(sellerSelection.value)) {
@@ -387,7 +495,16 @@ function buildCashbookParams(): { date: string; my_sales?: boolean; seller_id?: 
 }
 
 function cashbookPdfFilename(serverFilename?: string | null): string {
-  return serverFilename ?? `relatorio-financeiro-${cashDate.value}.pdf`
+  if (serverFilename) return serverFilename
+  if (filterMode.value === 'range' && rangeStart.value && rangeEnd.value) {
+    return `relatorio-financeiro-${rangeStart.value.replace(/[:]/g, '-')}.pdf`
+  }
+  const suffix = periodFilter.value ? `-${periodFilter.value}` : ''
+  return `relatorio-financeiro-${cashDate.value}${suffix}.pdf`
+}
+
+function cashbookShareTitle(): string {
+  return cashbook.value?.range_label || cashbook.value?.period_label || `Livro-caixa — ${cashDate.value}`
 }
 
 async function loadCashbook() {
@@ -436,7 +553,7 @@ const shareCashbookPdf = async () => {
   pdfLoading.value = true
   try {
     const { blob, filename } = await reportsService.getCashbookPdf(buildCashbookParams(), { download: false })
-    const title = `Livro-caixa — ${cashDate.value}`
+    const title = cashbookShareTitle()
     await shareFile(blob, cashbookPdfFilename(filename), title, 'Relatório financeiro (PDF)')
   } catch (e: any) {
     if (e?.name !== 'AbortError') {
@@ -560,11 +677,30 @@ async function removeOutflow(id: number) {
   gap: var(--spacing-4);
 }
 
+.mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-4);
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
 .filters-row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--spacing-4);
+}
+
+.range-row {
+  align-items: flex-end;
 }
 
 .seller-block {
@@ -743,6 +879,29 @@ async function removeOutflow(id: number) {
 
 .seller-filter-card {
   margin-bottom: 0;
+}
+
+.period-banner-card {
+  margin-bottom: 0;
+}
+
+.period-banner {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+}
+
+.period-banner-label {
+  color: var(--gray-600);
+}
+
+.partial-hint {
+  margin: var(--spacing-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
 }
 
 .seller-filter-banner {

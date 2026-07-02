@@ -16,6 +16,7 @@ import type {
   DailyProductsResponse,
   CreditSalesResponse,
   CashbookResponse,
+  CashbookFilters,
   CashbookPutRequest,
   PdfBlobResult
 } from '@/types/api'
@@ -487,18 +488,25 @@ export class ReportsService {
     return response.data
   }
 
-  /**
-   * Livro-caixa / prestação de contas do dia
-   */
-  async getCashbook(params: {
-    date: string
-    my_sales?: boolean
-    seller_id?: number
-  }): Promise<CashbookResponse> {
+  private buildCashbookQueryParams(params: CashbookFilters): URLSearchParams {
     const q = new URLSearchParams()
-    q.append('date', params.date)
+    if (params.start_at && params.end_at) {
+      q.append('start_at', params.start_at)
+      q.append('end_at', params.end_at)
+    } else {
+      if (params.date) q.append('date', params.date)
+      if (params.period) q.append('period', params.period)
+    }
     if (params.my_sales) q.append('my_sales', '1')
     if (params.seller_id != null) q.append('seller_id', String(params.seller_id))
+    return q
+  }
+
+  /**
+   * Livro-caixa / prestação de contas (dia inteiro, manhã/tarde ou intervalo customizado)
+   */
+  async getCashbook(params: CashbookFilters): Promise<CashbookResponse> {
+    const q = this.buildCashbookQueryParams(params)
     return await apiClient.get<CashbookResponse>(`/reports/cashbook?${q.toString()}`)
   }
 
@@ -514,13 +522,10 @@ export class ReportsService {
    * `download=1` força download em vez de abrir no navegador.
    */
   async getCashbookPdf(
-    params: { date: string; my_sales?: boolean; seller_id?: number },
+    params: CashbookFilters,
     options?: { download?: boolean }
   ): Promise<PdfBlobResult> {
-    const q = new URLSearchParams()
-    q.append('date', params.date)
-    if (params.my_sales) q.append('my_sales', '1')
-    if (params.seller_id != null) q.append('seller_id', String(params.seller_id))
+    const q = this.buildCashbookQueryParams(params)
     if (options?.download) q.append('download', '1')
     const response = await apiClient.getRaw(`/reports/cashbook/pdf?${q.toString()}`, {
       responseType: 'blob'

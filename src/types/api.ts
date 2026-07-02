@@ -699,8 +699,23 @@ export interface CashbookSellerFilter {
   self?: boolean
 }
 
+export interface CashbookFilters {
+  date?: string
+  period?: 'manha' | 'tarde'
+  start_at?: string
+  end_at?: string
+  my_sales?: boolean
+  seller_id?: number
+}
+
 export interface CashbookResponse {
   date?: string
+  start_at?: string | null
+  end_at?: string | null
+  period?: 'manha' | 'tarde' | null
+  period_label?: string | null
+  custom_range?: boolean
+  range_label?: string | null
   timezone?: string
   entries?: CashbookEntries
   outflows?: {
