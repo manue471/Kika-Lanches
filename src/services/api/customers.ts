@@ -26,6 +26,11 @@ export class CustomersService {
     if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString())
     if (filters.per_page) params.append('per_page', filters.per_page.toString())
     if (filters.page) params.append('page', filters.page.toString())
+    if (filters.period) params.append('period', filters.period)
+    if (filters.from_date) params.append('from_date', filters.from_date)
+    if (filters.to_date) params.append('to_date', filters.to_date)
+    if (filters.status) params.append('status', filters.status)
+    if (filters.payment_method) params.append('payment_method', filters.payment_method)
 
     const queryString = params.toString()
     const url = queryString ? `/customers?${queryString}` : '/customers'

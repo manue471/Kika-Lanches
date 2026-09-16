@@ -42,8 +42,21 @@
             <h4 class="detail-section-title">Pagamento</h4>
             <div class="detail-card">
               <p class="detail-strong">{{ getPaymentMethodLabel(originalOrder.payment_method) }}</p>
+              <div
+                v-if="originalOrderPaymentAmountLines.length"
+                class="detail-payment-amounts"
+              >
+                <div
+                  v-for="line in originalOrderPaymentAmountLines"
+                  :key="line.method"
+                  class="detail-value-row"
+                >
+                  <span>{{ line.label }}</span>
+                  <span>{{ formatCurrency(line.amount) }}</span>
+                </div>
+              </div>
               <p
-                v-if="originalOrder.payment_methods?.length"
+                v-else-if="originalOrder.payment_methods?.length"
                 class="detail-muted detail-tags"
               >
                 <span v-for="m in originalOrder.payment_methods" :key="m" class="detail-tag">{{
@@ -254,26 +267,29 @@
           </div>
         </div>
 
-        <!-- Partial Payment Section -->
+        <!-- Split / partial payment (hidden when 100% à prazo) -->
         <div class="form-section" v-if="enablePartialPayment">
-          <h3 class="section-title">Pagamento Parcial</h3>
+          <h3 class="section-title">Valores por forma</h3>
           <div class="partial-payment-info">
             <p class="info-text">
-              Você pode registrar um pagamento parcial. O valor restante será adicionado ao débito do cliente.
+              Informe quanto foi pago em cada forma. Deixe em branco para pagar 100% no método
+              selecionado. O que faltar vira à prazo.
             </p>
           </div>
           <div class="form-grid">
             <div class="form-group">
-              <label for="paid_amount" class="form-label">Valor Pago (R$)</label>
+              <label for="paid_amount" class="form-label">
+                Valor em {{ getPaymentMethodLabel(form.payment_method) }} (R$)
+              </label>
               <BaseInput
                 id="paid_amount"
                 v-model="paidAmountInput"
                 type="text"
-                placeholder="0.00"
+                placeholder="Total = 100% neste método"
                 :error="errors.paid_amount"
                 @blur="handlePaidAmountBlur"
               />
-              <small class="form-hint">Valor pago à vista neste pedido</small>
+              <small class="form-hint">Valor pago nesta forma (vazio = total do pedido)</small>
             </div>
             <div class="form-group">
               <label for="debt_amount" class="form-label">Valor à Prazo (R$)</label>
@@ -287,23 +303,32 @@
                 step="0.01"
                 class="readonly-input"
               />
-              <small class="form-hint">Valor que será adicionado ao débito</small>
+              <small class="form-hint">Total − soma à vista</small>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Métodos de Pagamento Utilizados</label>
-            <div class="payment-methods-checkboxes">
-              <label v-for="method in paymentMethodOptions" :key="method.value" class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :value="method.value"
-                  v-model="form.payment_methods"
-                  class="checkbox-input"
-                />
-                <span>{{ method.label }}</span>
-              </label>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="secondary_payment_method" class="form-label">Outra forma à vista</label>
+              <BaseSelect
+                id="secondary_payment_method"
+                v-model="secondaryPaymentMethod"
+                :options="secondaryPaymentMethodOptions"
+              />
+              <small class="form-hint">Opcional — ex.: PIX + dinheiro no mesmo pedido</small>
             </div>
-            <small class="form-hint">Selecione todos os métodos de pagamento utilizados neste pedido</small>
+            <div class="form-group" v-if="secondaryPaymentMethod">
+              <label for="secondary_paid_amount" class="form-label">
+                Valor em {{ getPaymentMethodLabel(secondaryPaymentMethod) }} (R$)
+              </label>
+              <BaseInput
+                id="secondary_paid_amount"
+                v-model="secondaryPaidAmountInput"
+                type="text"
+                placeholder="0.00"
+                :error="errors.secondary_paid_amount"
+                @blur="handleSecondaryPaidAmountBlur"
+              />
+            </div>
           </div>
         </div>
         
@@ -337,9 +362,9 @@
           <span class="summary-label">Total:</span>
           <span class="summary-value">{{ formatCurrency(total) }}</span>
         </div>
-        <div class="summary-item" v-if="form.paid_amount && form.paid_amount > 0">
-          <span class="summary-label">Valor Pago:</span>
-          <span class="summary-value paid">{{ formatCurrency(form.paid_amount) }}</span>
+        <div class="summary-item" v-if="cashReceivedTotal > 0 && form.payment_method !== 'a_prazo'">
+          <span class="summary-label">Valor à vista:</span>
+          <span class="summary-value paid">{{ formatCurrency(cashReceivedTotal) }}</span>
         </div>
         <div class="summary-item" v-if="calculatedDebtAmount > 0">
           <span class="summary-label">Valor à Prazo:</span>
@@ -493,6 +518,10 @@ const modalSize = computed(() => (isReadOnlyView.value ? 'xl' : 'lg'))
 
 // Input temporário para paid_amount (permite digitação livre)
 const paidAmountInput = ref<string>('')
+type ImmediatePaymentMethod = 'cartao_credito' | 'pix' | 'dinheiro'
+const secondaryPaymentMethod = ref<ImmediatePaymentMethod | ''>('')
+const secondaryPaidAmountInput = ref<string>('')
+const secondaryPaidAmount = ref<number | undefined>(undefined)
 
 // Função para formatar número para string de exibição
 const formatNumberInput = (value: number | undefined | null): string => {
@@ -514,6 +543,61 @@ const roundCurrency = (value: number): number => {
   return Math.round(value * 100) / 100
 }
 
+/** Build payment_amounts from filled fields (empty primary = 100% on dropdown). */
+const buildPaymentAmounts = (): Partial<Record<ImmediatePaymentMethod, number>> | null => {
+  const method = form.value.payment_method
+  if (method === 'a_prazo') return null
+
+  const amounts: Partial<Record<ImmediatePaymentMethod, number>> = {}
+  const primaryExplicit = form.value.paid_amount
+  const secondaryExplicit =
+    secondaryPaymentMethod.value &&
+    secondaryPaidAmount.value !== undefined &&
+    secondaryPaidAmount.value > 0
+      ? secondaryPaidAmount.value
+      : 0
+
+  const hasAnyExplicit =
+    (primaryExplicit !== undefined && primaryExplicit !== null) || secondaryExplicit > 0
+
+  if (!hasAnyExplicit) {
+    amounts[method as ImmediatePaymentMethod] = roundCurrency(total.value)
+    return amounts
+  }
+
+  let primaryValue = primaryExplicit !== undefined && primaryExplicit !== null
+    ? roundCurrency(primaryExplicit)
+    : 0
+
+  if (primaryValue <= 0 && secondaryExplicit > 0) {
+    // Secondary filled but primary empty: remainder of total after secondary goes to primary if no debt intended?
+    // Plan: primary amount field empty means 100% on dropdown only when NOTHING else filled.
+    // With secondary filled, treat empty primary as 0.
+    primaryValue = 0
+  }
+
+  if (primaryValue > 0) {
+    amounts[method as ImmediatePaymentMethod] = primaryValue
+  }
+
+  if (
+    secondaryPaymentMethod.value &&
+    secondaryExplicit > 0 &&
+    secondaryPaymentMethod.value !== method
+  ) {
+    amounts[secondaryPaymentMethod.value] = roundCurrency(secondaryExplicit)
+  }
+
+  return Object.keys(amounts).length ? amounts : null
+}
+
+const cashReceivedTotal = computed(() => {
+  if (form.value.payment_method === 'a_prazo') return 0
+  const amounts = buildPaymentAmounts()
+  if (!amounts) return 0
+  return roundCurrency(Object.values(amounts).reduce((s, v) => s + (v || 0), 0))
+})
+
 // Handler para quando o campo perde o foco
 const handlePaidAmountBlur = () => {
   const parsed = parseNumberInput(paidAmountInput.value)
@@ -533,12 +617,45 @@ const handlePaidAmountBlur = () => {
     form.value.paid_amount = undefined
     paidAmountInput.value = ''
   }
+  syncPaymentMethodsFromPrimary()
+}
+
+const handleSecondaryPaidAmountBlur = () => {
+  const parsed = parseNumberInput(secondaryPaidAmountInput.value)
+  if (parsed !== undefined) {
+    if (parsed < 0) {
+      secondaryPaidAmount.value = 0
+      secondaryPaidAmountInput.value = '0'
+    } else {
+      secondaryPaidAmount.value = roundCurrency(parsed)
+      secondaryPaidAmountInput.value = formatNumberInput(roundCurrency(parsed))
+    }
+  } else {
+    secondaryPaidAmount.value = undefined
+    secondaryPaidAmountInput.value = ''
+  }
+  syncPaymentMethodsFromPrimary()
 }
 
 // Sincronizar paidAmountInput com form.paid_amount
 watch(() => form.value.paid_amount, (newValue) => {
   paidAmountInput.value = formatNumberInput(newValue)
 }, { immediate: true })
+
+watch(secondaryPaymentMethod, (method) => {
+  if (!method) {
+    secondaryPaidAmount.value = undefined
+    secondaryPaidAmountInput.value = ''
+  }
+  if (method && method === form.value.payment_method) {
+    secondaryPaymentMethod.value = ''
+  }
+  syncPaymentMethodsFromPrimary()
+})
+
+watch(secondaryPaidAmount, () => {
+  syncPaymentMethodsFromPrimary()
+})
 
 // Store original order data to detect changes / modo leitura
 const originalOrder = ref<Order | null>(null)
@@ -569,6 +686,28 @@ const paymentMethodOptions = [
   { value: 'dinheiro', label: 'Dinheiro' },
   { value: 'a_prazo', label: 'À Prazo' }
 ]
+
+const secondaryPaymentMethodOptions = computed(() => {
+  const empty = { value: '', label: 'Nenhuma' }
+  return [
+    empty,
+    ...paymentMethodOptions
+      .filter((o) => o.value !== 'a_prazo' && o.value !== form.value.payment_method)
+      .map((o) => ({ value: o.value, label: o.label }))
+  ]
+})
+
+const originalOrderPaymentAmountLines = computed(() => {
+  const amounts = originalOrder.value?.payment_amounts
+  if (!amounts || typeof amounts !== 'object') return [] as { method: string; label: string; amount: number }[]
+  return Object.entries(amounts)
+    .filter(([, v]) => Number(v) > 0)
+    .map(([method, amount]) => ({
+      method,
+      label: getPaymentMethodLabel(method),
+      amount: Number(amount) || 0
+    }))
+})
 
 const modalTitle = computed(() => {
   if (isReadOnlyView.value) {
@@ -698,24 +837,20 @@ const enablePartialPayment = computed(() => {
   return form.value.payment_method !== 'a_prazo'
 })
 
-// Calculated debt amount
+// Calculated debt amount = total − soma à vista
 const calculatedDebtAmount = computed(() => {
   const totalValue = total.value
-  const paidValue = form.value.paid_amount || 0
-  
+
   if (form.value.payment_method === 'a_prazo') {
-    // Fully on credit, all is debt
     return roundCurrency(totalValue)
   }
-  
+
+  const paidValue = cashReceivedTotal.value
   if (paidValue >= totalValue) {
-    // Fully paid
     return 0
   }
-  
-  // Partial payment - round to avoid floating point precision issues
-  const debt = totalValue - paidValue
-  return Math.max(0, roundCurrency(debt))
+
+  return Math.max(0, roundCurrency(totalValue - paidValue))
 })
 
 // Watch calculatedDebtAmount to sync with form.debt_amount
@@ -726,37 +861,56 @@ watch(() => calculatedDebtAmount.value, (newDebt) => {
 // Watch paid_amount to update debt_amount
 watch(() => form.value.paid_amount, (newPaidAmount) => {
   const totalValue = total.value
-  
+
   if (newPaidAmount !== undefined && newPaidAmount !== null) {
-    // Validação já é feita no handlePaidAmountBlur, mas mantemos aqui como segurança
     if (newPaidAmount > totalValue) {
-      // Prevent paid amount from exceeding total
       form.value.paid_amount = roundCurrency(totalValue)
       paidAmountInput.value = formatNumberInput(totalValue)
     }
-    
-    // Update payment_methods to include main payment method if not already included
-    if (form.value.payment_method && !form.value.payment_methods.includes(form.value.payment_method)) {
-      form.value.payment_methods = [form.value.payment_method]
-    }
+
+    syncPaymentMethodsFromPrimary()
   }
-  
+
   // The calculatedDebtAmount watch will handle updating form.debt_amount
 })
 
-// Watch payment_method to update payment_methods
+/** Derive payment_methods from filled amount fields (+ a_prazo if remainder). */
+const syncPaymentMethodsFromPrimary = () => {
+  const method = form.value.payment_method
+  if (!method) {
+    form.value.payment_methods = []
+    return
+  }
+  if (method === 'a_prazo') {
+    form.value.payment_methods = ['a_prazo']
+    return
+  }
+
+  const amounts = buildPaymentAmounts()
+  const methods: string[] = amounts ? Object.keys(amounts) : [method]
+  if (calculatedDebtAmount.value > 0 && !methods.includes('a_prazo')) {
+    methods.push('a_prazo')
+  }
+  form.value.payment_methods = methods
+}
+
+// Watch payment_method: replace (do not accumulate) payment_methods
 watch(() => form.value.payment_method, (newMethod) => {
   if (newMethod === 'a_prazo') {
-    // If fully on credit, clear paid amount and set debt to total
     form.value.paid_amount = undefined
     paidAmountInput.value = ''
     form.value.debt_amount = roundCurrency(total.value)
     form.value.payment_methods = ['a_prazo']
+    secondaryPaymentMethod.value = ''
+    secondaryPaidAmount.value = undefined
+    secondaryPaidAmountInput.value = ''
   } else {
-    // If not fully on credit, add to payment_methods if not already included
-    if (newMethod && !form.value.payment_methods.includes(newMethod)) {
-      form.value.payment_methods = [newMethod, ...form.value.payment_methods]
+    if (secondaryPaymentMethod.value === newMethod) {
+      secondaryPaymentMethod.value = ''
+      secondaryPaidAmount.value = undefined
+      secondaryPaidAmountInput.value = ''
     }
+    syncPaymentMethodsFromPrimary()
   }
 })
 
@@ -792,6 +946,9 @@ const resetForm = () => {
     notes: ''
   }
   paidAmountInput.value = ''
+  secondaryPaymentMethod.value = ''
+  secondaryPaidAmount.value = undefined
+  secondaryPaidAmountInput.value = ''
   errors.value = {}
   clearCustomerSelection()
   // Clear all product search states
@@ -827,15 +984,44 @@ watch(() => props.show, async (show) => {
             quantity: item.quantity
           })) || [{ product_id: 0, quantity: 1 }],
           payment_method: order.payment_method,
-          paid_amount: order.paid_amount,
+          paid_amount: undefined,
           debt_amount: order.debt_amount,
-          payment_methods: order.payment_methods || [],
+          payment_methods: [],
           shipping_amount: order.shipping_amount || 0,
           tax_amount: order.tax_amount || 0,
           notes: order.notes || ''
         }
-        // Sincronizar o input com o valor do form
-        paidAmountInput.value = formatNumberInput(order.paid_amount)
+
+        secondaryPaymentMethod.value = ''
+        secondaryPaidAmount.value = undefined
+        secondaryPaidAmountInput.value = ''
+
+        const amounts = order.payment_amounts
+        const primary = order.payment_method
+        if (amounts && typeof amounts === 'object' && primary !== 'a_prazo') {
+          const primaryAmt = Number((amounts as Record<string, number>)[primary] ?? NaN)
+          if (!Number.isNaN(primaryAmt)) {
+            form.value.paid_amount = roundCurrency(primaryAmt)
+            paidAmountInput.value = formatNumberInput(primaryAmt)
+          } else {
+            paidAmountInput.value = formatNumberInput(order.paid_amount)
+            form.value.paid_amount = order.paid_amount
+          }
+
+          const other = Object.entries(amounts).find(
+            ([m, v]) => m !== primary && m !== 'a_prazo' && Number(v) > 0
+          )
+          if (other) {
+            secondaryPaymentMethod.value = other[0] as ImmediatePaymentMethod
+            secondaryPaidAmount.value = roundCurrency(Number(other[1]))
+            secondaryPaidAmountInput.value = formatNumberInput(secondaryPaidAmount.value)
+          }
+        } else {
+          paidAmountInput.value = formatNumberInput(order.paid_amount)
+          form.value.paid_amount = order.paid_amount
+        }
+
+        syncPaymentMethodsFromPrimary()
         
         // Set selected customer for autocomplete
         if (order.customer) {
@@ -1161,38 +1347,49 @@ watch(() => products.value, (newProducts) => {
 const validatePayment = (): { isValid: boolean; error?: string } => {
   const totalValue = total.value
   const paymentMethod = form.value.payment_method
-  const paidAmount = form.value.paid_amount
 
-  // If payment is fully on credit, it's valid
   if (paymentMethod === 'a_prazo') {
     return { isValid: true }
   }
 
-  // Validação do valor pago: não pode ser zero/negativo nem ultrapassar o total
-  if (paidAmount !== undefined && paidAmount !== null) {
-    if (paidAmount <= 0) {
-      return { 
-        isValid: false, 
-        error: 'Valor pago deve ser maior que zero' 
-      }
+  if (
+    secondaryPaymentMethod.value &&
+    (secondaryPaidAmount.value === undefined || secondaryPaidAmount.value <= 0)
+  ) {
+    return {
+      isValid: false,
+      error: 'Informe o valor da outra forma à vista'
     }
-    
-    if (paidAmount > totalValue) {
-      return { 
-        isValid: false, 
-        error: 'Valor pago não pode ser maior que o total da venda' 
-      }
+  }
+
+  if (
+    secondaryPaymentMethod.value &&
+    (form.value.paid_amount === undefined || form.value.paid_amount === null || form.value.paid_amount <= 0)
+  ) {
+    return {
+      isValid: false,
+      error: 'Informe o valor do método principal quando usar outra forma'
     }
-    
-    // Pagamento parcial: o restante (à prazo) deve ser positivo
-    if (paidAmount < totalValue) {
-      const debtAmount = totalValue - paidAmount
-      if (debtAmount <= 0) {
-        return { 
-          isValid: false, 
-          error: 'Valor à prazo deve ser maior que zero' 
-        }
-      }
+  }
+
+  if (
+    secondaryPaymentMethod.value &&
+    secondaryPaymentMethod.value === paymentMethod
+  ) {
+    return {
+      isValid: false,
+      error: 'A outra forma deve ser diferente do método principal'
+    }
+  }
+
+  const cash = cashReceivedTotal.value
+  if (cash < 0) {
+    return { isValid: false, error: 'Valor à vista inválido' }
+  }
+  if (cash > totalValue + 0.001) {
+    return {
+      isValid: false,
+      error: 'A soma dos valores à vista não pode ser maior que o total'
     }
   }
 
@@ -1226,7 +1423,11 @@ const validateForm = (): boolean => {
   // Validate payment
   const paymentValidation = validatePayment()
   if (!paymentValidation.isValid && paymentValidation.error) {
-    errors.value.paid_amount = paymentValidation.error
+    if (paymentValidation.error.includes('outra forma')) {
+      errors.value.secondary_paid_amount = paymentValidation.error
+    } else {
+      errors.value.paid_amount = paymentValidation.error
+    }
     return false
   }
 
@@ -1266,7 +1467,6 @@ const statusForApiSubmit = (): Order['status'] => {
 }
 
 const prepareOrderData = () => {
-  // Prepare base order data
   const orderData: any = {
     customer_id: form.value.customer_id,
     products: form.value.products,
@@ -1277,30 +1477,24 @@ const prepareOrderData = () => {
     status: statusForApiSubmit()
   }
 
-    // Add payment information according to payment type
-    if (form.value.payment_method === 'a_prazo') {
-      // Fully on credit - no paid amount, all is debt
-      orderData.payment_methods = ['a_prazo']
-    } else if (form.value.paid_amount !== undefined && form.value.paid_amount > 0) {
-      // Partial payment - part paid, part as debt
-      orderData.paid_amount = roundCurrency(form.value.paid_amount)
-      const methods = form.value.payment_methods.length > 0 
-        ? [...form.value.payment_methods] 
-        : [form.value.payment_method]
-      
-      // If paid amount is less than total, add 'a_prazo' to methods
-      if (form.value.paid_amount < total.value && !methods.includes('a_prazo')) {
-        methods.push('a_prazo')
-      }
-      orderData.payment_methods = methods
-    } else {
-      // Full payment à vista - no debt
-      // Backend will handle this automatically, but we can be explicit
-      orderData.paid_amount = roundCurrency(total.value)
-      orderData.payment_methods = form.value.payment_methods.length > 0 
-        ? form.value.payment_methods 
-        : [form.value.payment_method]
-    }
+  if (form.value.payment_method === 'a_prazo') {
+    orderData.payment_methods = ['a_prazo']
+    orderData.paid_amount = 0
+    return orderData
+  }
+
+  const amounts = buildPaymentAmounts()
+  const cash = cashReceivedTotal.value
+  const methods: string[] = amounts ? Object.keys(amounts) : [form.value.payment_method]
+  if (calculatedDebtAmount.value > 0) {
+    methods.push('a_prazo')
+  }
+
+  orderData.paid_amount = roundCurrency(cash)
+  orderData.payment_methods = methods
+  if (amounts) {
+    orderData.payment_amounts = amounts
+  }
 
   return orderData
 }
@@ -1655,31 +1849,6 @@ const handleStockCancel = () => {
     }
   }
 
-  .payment-methods-checkboxes {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
-    margin-top: var(--spacing-2);
-    
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-2);
-      cursor: pointer;
-      padding: var(--spacing-2);
-      border-radius: var(--radius-sm);
-      transition: background-color var(--transition-fast);
-      
-      &:hover {
-        background: var(--gray-50);
-      }
-      
-      .checkbox-input {
-        cursor: pointer;
-      }
-    }
-  }
-
   .form-hint {
     display: block;
     margin-top: var(--spacing-1);
@@ -1912,6 +2081,18 @@ const handleStockCancel = () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--spacing-4);
+}
+
+.detail-payment-amounts {
+  margin-top: var(--spacing-2);
+
+  .detail-value-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-1) 0;
+  }
 }
 
 .detail-values .detail-value-row {

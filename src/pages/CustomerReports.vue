@@ -39,6 +39,24 @@
             v-model="selectedPeriod"
             :options="periodOptions"
             placeholder="Selecione o período"
+            :disabled="hasCustomDateRange"
+          />
+          <small v-if="hasCustomDateRange" class="filter-hint">Desative as datas para usar o período</small>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Data inicial</label>
+          <BaseInput
+            v-model="selectedFromDate"
+            type="date"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Data final</label>
+          <BaseInput
+            v-model="selectedToDate"
+            type="date"
           />
         </div>
         
@@ -78,6 +96,15 @@
         >
           Aplicar Filtros
         </BaseButton>
+      </div>
+
+      <div v-if="activeFilterLabels.length" class="active-filters-banner">
+        <span class="active-filters-label">Filtros ativos:</span>
+        <span
+          v-for="(label, idx) in activeFilterLabels"
+          :key="idx"
+          class="active-filter-chip"
+        >{{ label }}</span>
       </div>
     </BaseCard>
 
@@ -197,13 +224,20 @@ const {
   selectedStatus, 
   selectedLimit,
   selectedPaymentMethod,
+  selectedFromDate,
+  selectedToDate,
+  hasCustomDateRange,
+  activeFilterLabels,
   periodOptions,
   statusOptions,
   paymentMethodOptions,
   getCustomerReport,
+  buildFilterParams,
   loadCustomers,
   loadMoreCustomers,
   searchCustomers,
+  resetFilters,
+  notifications,
   isLoading: isLoadingReport,
   error: reportError
 } = useCustomerReports()
@@ -216,14 +250,18 @@ const showReportModal = ref(false)
 const selectedCustomer = ref<Customer | null>(null)
 let searchTimeout: number | null = null
 
-// Computed
-const currentFilters = computed(() => ({
-  period: selectedPeriod.value,
-  status: selectedStatus.value || undefined,
-  payment_method: selectedPaymentMethod.value || undefined,
-  from_date: undefined, // Add date filters if needed
-  to_date: undefined
-}))
+// Computed — same filters used for report + PDF
+const currentFilters = computed(() => {
+  const f = buildFilterParams()
+  return {
+    period: f.period,
+    status: f.status,
+    payment_method: f.payment_method,
+    from_date: f.from_date,
+    to_date: f.to_date,
+    limit: f.limit
+  }
+})
 
 const isLoading = computed(() => isLoadingReport.value)
 
@@ -240,9 +278,28 @@ const loadCustomerReport = async (customerId?: number) => {
   }
 }
 
-const applyFilters = () => {
-  if (selectedCustomer.value) {
-    loadCustomerReport()
+const applyFilters = async () => {
+  if (selectedFromDate.value && !selectedToDate.value) {
+    notifications.warning('Informe também a data final')
+    return
+  }
+  if (selectedToDate.value && !selectedFromDate.value) {
+    notifications.warning('Informe também a data inicial')
+    return
+  }
+  if (
+    selectedFromDate.value &&
+    selectedToDate.value &&
+    selectedFromDate.value > selectedToDate.value
+  ) {
+    notifications.warning('A data inicial não pode ser maior que a data final')
+    return
+  }
+
+  await loadCustomersWithErrorHandling(true)
+
+  if (showReportModal.value && selectedCustomer.value) {
+    await loadCustomerReport()
   }
 }
 
@@ -282,11 +339,11 @@ const loadCustomersWithErrorHandling = async (reset = true) => {
 
 const clearAllFilters = () => {
   searchTerm.value = ''
-  selectedPeriod.value = 'last_month'
-  selectedStatus.value = ''
-  selectedLimit.value = 10
-  selectedPaymentMethod.value = ''
+  resetFilters()
   loadCustomersWithErrorHandling(true)
+  if (showReportModal.value && selectedCustomer.value) {
+    loadCustomerReport()
+  }
 }
 
 // Lifecycle
@@ -360,6 +417,35 @@ onUnmounted(() => {
         color: var(--gray-700);
         font-size: var(--font-size-sm);
       }
+
+      .filter-hint {
+        font-size: var(--font-size-xs);
+        color: var(--gray-500);
+      }
+    }
+  }
+
+  .active-filters-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-4);
+    padding-top: var(--spacing-3);
+    border-top: 1px solid var(--gray-200);
+
+    .active-filters-label {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .active-filter-chip {
+      font-size: var(--font-size-xs);
+      background: var(--gray-100);
+      color: var(--gray-800);
+      padding: 4px 10px;
+      border-radius: var(--radius-md);
     }
   }
 }

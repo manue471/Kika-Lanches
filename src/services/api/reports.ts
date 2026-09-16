@@ -41,21 +41,31 @@ export class ReportsService {
    * Get customer report
    */
   async getCustomerReport(
-    customerId: number, 
-    period?: CustomerReportPeriod,
-    status?: string,
-    limit?: number,
-    payment_method?: string
+    customerId: number,
+    filters: {
+      period?: CustomerReportPeriod
+      status?: string
+      limit?: number
+      payment_method?: string
+      from_date?: string
+      to_date?: string
+    } = {}
   ): Promise<CustomerReportResponse> {
     const params = new URLSearchParams()
-    if (period) params.append('period', period)
-    if (status) params.append('status', status)
-    if (limit) params.append('limit', limit.toString())
-    if (payment_method) params.append('payment_method', payment_method)
-    
+    // Custom dates override period (backend overwrites dates when period is sent)
+    if (filters.from_date && filters.to_date) {
+      params.append('from_date', filters.from_date)
+      params.append('to_date', filters.to_date)
+    } else if (filters.period) {
+      params.append('period', filters.period)
+    }
+    if (filters.status) params.append('status', filters.status)
+    if (filters.limit) params.append('limit', filters.limit.toString())
+    if (filters.payment_method) params.append('payment_method', filters.payment_method)
+
     const queryString = params.toString()
     const url = `/reports/customer/${customerId}${queryString ? `?${queryString}` : ''}`
-    
+
     return await apiClient.get<CustomerReportResponse>(url)
   }
 

@@ -225,6 +225,8 @@ export interface Order {
   paid_amount?: number
   debt_amount?: number
   payment_methods?: string[]
+  /** Valores por forma à vista, ex.: { pix: 18, dinheiro: 18 } */
+  payment_amounts?: Partial<Record<'pix' | 'dinheiro' | 'cartao_credito', number>> | null
   customer_id: number
   payment_method: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
   shipping_address?: {
@@ -350,6 +352,12 @@ export interface CustomerFilters {
   is_active?: boolean
   per_page?: number
   page?: number
+  /** Same filters as customer report — only customers with matching orders */
+  period?: CustomerReportPeriod
+  from_date?: string
+  to_date?: string
+  status?: string
+  payment_method?: string
 }
 
 export interface CategoryFilters {
@@ -452,6 +460,7 @@ export interface CreateOrderRequest {
   payment_method: 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo'
   paid_amount?: number
   payment_methods?: string[]
+  payment_amounts?: Partial<Record<'pix' | 'dinheiro' | 'cartao_credito', number>>
   shipping_address?: Record<string, any>
   tax_amount?: number
   shipping_amount?: number

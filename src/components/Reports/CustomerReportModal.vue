@@ -139,6 +139,7 @@ interface Props {
     payment_method?: string
     from_date?: string
     to_date?: string
+    limit?: number
   }
 }
 
@@ -243,14 +244,14 @@ const handlePayDebtSuccess = async () => {
 
 // PDF modal computed properties
 const pdfOptions = computed(() => {
-  // Use the same filters that are used for the report
+  const hasDates = !!(props.filters?.from_date && props.filters?.to_date)
   return {
-    limit: 10, // Default limit for PDF
+    limit: props.filters?.limit ?? 10,
     status: props.filters?.status,
     payment_method: props.filters?.payment_method,
     from_date: props.filters?.from_date,
     to_date: props.filters?.to_date,
-    period: props.filters?.period
+    period: hasDates ? undefined : props.filters?.period
   }
 })
 
