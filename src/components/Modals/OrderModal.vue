@@ -1028,18 +1028,38 @@ watch(() => props.show, async (show) => {
           selectCustomer(order.customer)
         }
         
-        // Initialize product search states for loaded products
-        form.value.products.forEach((item, index) => {
-          initProductSearchState(index)
-          if (item.product_id) {
-            const product = getProductById(item.product_id, index)
+        // Hydrate product rows: use embedded product from the order, then fetch
+        // full product (with stock) when it is missing from the paginated catalog.
+        const orderProductRows = (order as any).order_products || []
+        await Promise.all(
+          form.value.products.map(async (item, index) => {
+            initProductSearchState(index)
+            if (!item.product_id) return
+
+            const state = getProductSearchState(index)
+            const fromOrder = orderProductRows[index]?.product
+            let product = getProductById(item.product_id, index)
+
+            if (!product && fromOrder) {
+              product = fromOrder
+            }
+
+            if (!product || !product.stock) {
+              try {
+                const full = await productsService.getById(Number(item.product_id))
+                product = full
+              } catch (err) {
+                console.error('Error fetching product for edit:', item.product_id, err)
+              }
+            }
+
             if (product) {
-              const state = getProductSearchState(index)
               state.selectedProduct = product
               state.searchTerm = product.name
+              triggerProductSearchReactivity()
             }
-          }
-        })
+          })
+        )
       } catch (error) {
         console.error('Error fetching order:', error)
         originalOrder.value = null
@@ -1458,14 +1478,6 @@ const handleSubmit = async () => {
   await submitOrder()
 }
 
-/** Status enviado à API: novos pedidos como confirmado; edição preserva o registro atual. */
-const statusForApiSubmit = (): Order['status'] => {
-  if (isEditing.value && originalOrder.value) {
-    return originalOrder.value.status
-  }
-  return 'confirmed'
-}
-
 const prepareOrderData = () => {
   const orderData: any = {
     customer_id: form.value.customer_id,
@@ -1473,8 +1485,13 @@ const prepareOrderData = () => {
     payment_method: form.value.payment_method,
     shipping_amount: roundCurrency(form.value.shipping_amount || 0),
     tax_amount: roundCurrency(form.value.tax_amount || 0),
-    notes: form.value.notes,
-    status: statusForApiSubmit()
+    notes: form.value.notes
+  }
+
+  // Only send status on create. On edit, sending status aborts payment/product
+  // updates on older backends that treat status as an exclusive update branch.
+  if (!isEditing.value) {
+    orderData.status = 'confirmed'
   }
 
   if (form.value.payment_method === 'a_prazo') {
