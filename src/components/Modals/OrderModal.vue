@@ -1046,7 +1046,7 @@ watch(() => props.show, async (show) => {
           // Empty paid fields = 100% on the selected method (or full à prazo)
           form.value.paid_amount = undefined
           paidAmountInput.value = ''
-        } else if (amounts && typeof amounts === 'object' && primary !== 'a_prazo') {
+        } else if (amounts && typeof amounts === 'object') {
           showPartialPaymentExpanded.value = true
           const primaryAmt = Number((amounts as Record<string, number>)[primary] ?? NaN)
           if (!Number.isNaN(primaryAmt)) {
