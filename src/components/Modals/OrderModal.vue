@@ -267,8 +267,21 @@
           </div>
         </div>
 
-        <!-- Split / partial payment (hidden when 100% à prazo) -->
-        <div class="form-section" v-if="enablePartialPayment">
+        <!-- Split / partial: only when debt, two methods, or user expands -->
+        <div
+          v-if="form.payment_method !== 'a_prazo' && !showPartialPaymentUi"
+          class="partial-payment-toggle"
+        >
+          <BaseButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            @click="showPartialPaymentExpanded = true"
+          >
+            Pagamento parcial / duas formas
+          </BaseButton>
+        </div>
+        <div class="form-section" v-if="showPartialPaymentUi">
           <h3 class="section-title">Valores por forma</h3>
           <div class="partial-payment-info">
             <p class="info-text">
@@ -522,6 +535,8 @@ type ImmediatePaymentMethod = 'cartao_credito' | 'pix' | 'dinheiro'
 const secondaryPaymentMethod = ref<ImmediatePaymentMethod | ''>('')
 const secondaryPaidAmountInput = ref<string>('')
 const secondaryPaidAmount = ref<number | undefined>(undefined)
+/** User opened the split/partial payment section manually */
+const showPartialPaymentExpanded = ref(false)
 
 // Função para formatar número para string de exibição
 const formatNumberInput = (value: number | undefined | null): string => {
@@ -832,11 +847,6 @@ const total = computed(() => {
   return totalValue
 })
 
-// Enable partial payment when payment method is not fully "a_prazo"
-const enablePartialPayment = computed(() => {
-  return form.value.payment_method !== 'a_prazo'
-})
-
 // Calculated debt amount = total − soma à vista
 const calculatedDebtAmount = computed(() => {
   const totalValue = total.value
@@ -851,6 +861,16 @@ const calculatedDebtAmount = computed(() => {
   }
 
   return Math.max(0, roundCurrency(totalValue - paidValue))
+})
+
+// Show split UI only for à vista when there is debt, a second method, or user expanded it
+const showPartialPaymentUi = computed(() => {
+  if (form.value.payment_method === 'a_prazo') return false
+  return (
+    showPartialPaymentExpanded.value ||
+    calculatedDebtAmount.value > 0.005 ||
+    !!secondaryPaymentMethod.value
+  )
 })
 
 // Watch calculatedDebtAmount to sync with form.debt_amount
@@ -904,6 +924,7 @@ watch(() => form.value.payment_method, (newMethod) => {
     secondaryPaymentMethod.value = ''
     secondaryPaidAmount.value = undefined
     secondaryPaidAmountInput.value = ''
+    showPartialPaymentExpanded.value = false
   } else {
     if (secondaryPaymentMethod.value === newMethod) {
       secondaryPaymentMethod.value = ''
@@ -949,6 +970,7 @@ const resetForm = () => {
   secondaryPaymentMethod.value = ''
   secondaryPaidAmount.value = undefined
   secondaryPaidAmountInput.value = ''
+  showPartialPaymentExpanded.value = false
   errors.value = {}
   clearCustomerSelection()
   // Clear all product search states
@@ -995,10 +1017,37 @@ watch(() => props.show, async (show) => {
         secondaryPaymentMethod.value = ''
         secondaryPaidAmount.value = undefined
         secondaryPaidAmountInput.value = ''
+        showPartialPaymentExpanded.value = false
 
         const amounts = order.payment_amounts
         const primary = order.payment_method
-        if (amounts && typeof amounts === 'object' && primary !== 'a_prazo') {
+        const orderTotal = Number(order.total_amount) || 0
+        const orderPaid = Number(order.paid_amount) || 0
+        const orderDebt = Number(order.debt_amount) || 0
+
+        const immediateEntries =
+          amounts && typeof amounts === 'object'
+            ? Object.entries(amounts as Record<string, number>).filter(
+                ([m, v]) => m !== 'a_prazo' && Number(v) > 0
+              )
+            : []
+
+        const hasSecondaryForm =
+          immediateEntries.length > 1 ||
+          (immediateEntries.length === 1 && immediateEntries[0][0] !== primary)
+        const hasRemainingDebt = orderDebt > 0.005
+        const isFullSingleMethod =
+          primary !== 'a_prazo' &&
+          !hasRemainingDebt &&
+          orderPaid >= orderTotal - 0.005 &&
+          !hasSecondaryForm
+
+        if (primary === 'a_prazo' || isFullSingleMethod) {
+          // Empty paid fields = 100% on the selected method (or full à prazo)
+          form.value.paid_amount = undefined
+          paidAmountInput.value = ''
+        } else if (amounts && typeof amounts === 'object' && primary !== 'a_prazo') {
+          showPartialPaymentExpanded.value = true
           const primaryAmt = Number((amounts as Record<string, number>)[primary] ?? NaN)
           if (!Number.isNaN(primaryAmt)) {
             form.value.paid_amount = roundCurrency(primaryAmt)
@@ -1008,15 +1057,14 @@ watch(() => props.show, async (show) => {
             form.value.paid_amount = order.paid_amount
           }
 
-          const other = Object.entries(amounts).find(
-            ([m, v]) => m !== primary && m !== 'a_prazo' && Number(v) > 0
-          )
+          const other = immediateEntries.find(([m]) => m !== primary)
           if (other) {
             secondaryPaymentMethod.value = other[0] as ImmediatePaymentMethod
             secondaryPaidAmount.value = roundCurrency(Number(other[1]))
             secondaryPaidAmountInput.value = formatNumberInput(secondaryPaidAmount.value)
           }
         } else {
+          showPartialPaymentExpanded.value = hasRemainingDebt
           paidAmountInput.value = formatNumberInput(order.paid_amount)
           form.value.paid_amount = order.paid_amount
         }
@@ -1851,6 +1899,10 @@ const handleStockCancel = () => {
         color: var(--warning);
       }
     }
+  }
+
+  .partial-payment-toggle {
+    margin: var(--spacing-3) 0 var(--spacing-2);
   }
 
   .partial-payment-info {
