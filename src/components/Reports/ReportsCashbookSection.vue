@@ -132,7 +132,12 @@
               <tr>
                 <th>Forma</th>
                 <th class="col-num">Pedidos (R$)</th>
-                <th class="col-num">Pag. débito (R$)</th>
+                <th
+                  class="col-num"
+                  title="Quitações de fiado (pagar débito do cliente). Não inclui edição de forma de pagamento do pedido."
+                >
+                  Pag. débito (R$)
+                </th>
                 <th class="col-num">Total (R$)</th>
               </tr>
             </thead>
