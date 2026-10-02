@@ -21,6 +21,10 @@
             <span class="detail-order-num">{{ originalOrder.order_number }}</span>
           </div>
           <p class="detail-date">{{ formatDetailDateTime(originalOrder.created_at) }}</p>
+          <p class="detail-seller">
+            <span class="detail-seller-label">Vendedor</span>
+            {{ originalOrder.user?.name?.trim() || '—' }}
+          </p>
         </div>
 
         <div class="detail-section">
@@ -2149,6 +2153,23 @@ const handleStockCancel = () => {
 .detail-date {
   margin: var(--spacing-2) 0 0;
   font-size: var(--font-size-sm);
+  color: var(--gray-600);
+}
+
+.detail-seller {
+  margin: var(--spacing-2) 0 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.detail-seller-label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--gray-600);
 }
 

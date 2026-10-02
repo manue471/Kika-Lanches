@@ -124,6 +124,7 @@
                 <p class="compact-items" :title="itemsSummaryFull(order)">
                   {{ itemsSummary(order) }}
                 </p>
+                <p class="compact-seller">Vendedor: {{ sellerName(order) }}</p>
                 <div class="compact-meta">
                   <span class="compact-status" :class="`st-${order.status}`">{{ getStatusShort(order.status) }}</span>
                 </div>
@@ -283,6 +284,10 @@ let loadMoreObserver: IntersectionObserver | null = null
 
 // Computed
 const formatCurrency = currency
+
+function sellerName(order: Order): string {
+  return order.user?.name?.trim() || '—'
+}
 
 const statusOptions = [
   { value: '', label: 'Todos os status' },
@@ -624,6 +629,14 @@ onUnmounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.compact-seller {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-700);
+  line-height: 1.3;
 }
 
 .compact-meta {
