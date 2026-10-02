@@ -153,7 +153,8 @@ const formatDate = (dateValue: string | Date) => date(dateValue)
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   pix: 'PIX',
   dinheiro: 'Dinheiro',
-  cartao_credito: 'Cartão de crédito'
+  cartao_credito: 'Cartão de crédito',
+  desconto_funcionario: 'Descontar (Funcionário)'
 }
 
 function formatPaymentMethod(debt: CustomerDebt): string {

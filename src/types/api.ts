@@ -631,7 +631,7 @@ export interface CustomerDebt {
   balance_after?: number
   description?: string
   /** Em quitações (type payment), quando existir */
-  payment_method?: 'pix' | 'dinheiro' | 'cartao_credito' | string | null
+  payment_method?: 'pix' | 'dinheiro' | 'cartao_credito' | 'desconto_funcionario' | string | null
   created_at: string
   updated_at: string
   customer?: Customer
@@ -661,7 +661,7 @@ export interface CustomerDebtsResponse {
 
 export interface PayDebtRequest {
   amount: number
-  payment_method: 'pix' | 'dinheiro' | 'cartao_credito'
+  payment_method: 'pix' | 'dinheiro' | 'cartao_credito' | 'desconto_funcionario'
   description?: string
 }
 

@@ -196,7 +196,8 @@ const formatCurrency = currency
 const paymentMethodOptions = [
   { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartao_credito', label: 'Cartão de crédito' }
+  { value: 'cartao_credito', label: 'Cartão de crédito' },
+  { value: 'desconto_funcionario', label: 'Descontar (Funcionário)' }
 ]
 
 // Form state

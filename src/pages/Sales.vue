@@ -44,6 +44,12 @@
             placeholder="Todos os horários"
             @change="handleTimeRangeFilter"
           />
+          <BaseSelect
+            v-if="canPickSeller"
+            v-model="sellerSelection"
+            :options="sellerSelectOptions"
+            label="Vendedor"
+          />
           <div class="date-filters">
             <BaseInput
               v-model="startDate"
@@ -160,14 +166,16 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useOrders } from '@/composables/useOrders'
+import { useAuth } from '@/composables/useAuth'
 import { useFormatter } from '@/composables/useUtils'
+import { usersService } from '@/services/api/users'
 import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import OrderModal from '../components/Modals/OrderModal.vue'
-import type { Order } from '@/types/api'
+import type { Order, User } from '@/types/api'
 
 const {
   // State
@@ -196,12 +204,74 @@ const {
   filterByPaymentMethod,
   filterByDateRange,
   filterByTimeRange,
+  applySellerFilter,
   loadTimePeriods,
   cancelOrder,
-  refresh
-} = useOrders()
+  refresh,
+  sellerIdFilter
+} = useOrders({ autoLoad: false })
 
+const { user: authUser, checkAuth } = useAuth()
 const { currency } = useFormatter()
+
+const canPickSeller = computed(() => {
+  const role =
+    authUser.value?.role ??
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('user_role') : null)
+  return role === 'admin' || role === 'tenant_owner'
+})
+
+const sellerUsers = ref<User[]>([])
+const sellerSelection = ref('')
+const sellerFilterReady = ref(false)
+
+const sellerSelectOptions = computed(() => {
+  const options: { value: string; label: string }[] = [
+    { value: '', label: 'Todos os vendedores' }
+  ]
+  const seen = new Set<number>()
+  const me = authUser.value
+  if (me && me.role !== 'client') {
+    options.push({ value: String(me.id), label: `${me.name} (eu)` })
+    seen.add(me.id)
+  }
+  for (const user of sellerUsers.value) {
+    if (seen.has(user.id)) continue
+    options.push({ value: String(user.id), label: user.name })
+    seen.add(user.id)
+  }
+  return options
+})
+
+watch(sellerSelection, (value) => {
+  if (!sellerFilterReady.value || !canPickSeller.value) return
+  const next = value === '' ? null : Number(value)
+  const normalized = next != null && next > 0 ? next : null
+  if (sellerIdFilter.value === normalized) return
+  applySellerFilter(normalized)
+})
+
+async function initSellerFilter() {
+  await checkAuth()
+  const me = authUser.value
+  if (canPickSeller.value) {
+    try {
+      const res = await usersService.list({ per_page: 200, page: 1 })
+      sellerUsers.value = (res.data ?? []).filter(
+        (user) => user.is_active !== false && user.role !== 'client'
+      )
+    } catch {
+      sellerUsers.value = []
+    }
+  }
+  if (me) {
+    sellerSelection.value = String(me.id)
+    await applySellerFilter(me.id)
+  } else {
+    await refresh()
+  }
+  sellerFilterReady.value = true
+}
 
 // UI State
 const showOrderModal = ref(false)
@@ -353,7 +423,7 @@ watch(
 )
 
 onMounted(async () => {
-  await loadTimePeriods()
+  await Promise.all([loadTimePeriods(), initSellerFilter()])
   await nextTick()
   if (orders.value.length > 0) setupOrdersInfiniteScroll()
 })

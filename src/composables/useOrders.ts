@@ -4,7 +4,7 @@ import { useLoading } from '@/composables/useLoading'
 import { useNotifications } from '@/composables/useNotifications'
 import type { Order, CreateOrderRequest } from '@/types/api'
 
-export function useOrders() {
+export function useOrders(options?: { autoLoad?: boolean }) {
   const notifications = useNotifications()
   const loading = useLoading()
   
@@ -15,6 +15,8 @@ export function useOrders() {
   const startDate = ref('')
   const endDate = ref('')
   const timeRangeFilter = ref('')
+  /** null = todas as vendas (só perfil superior); número = vendedor */
+  const sellerIdFilter = ref<number | null>(null)
   
   const ORDERS_PER_PAGE = 15
 
@@ -41,6 +43,7 @@ export function useOrders() {
       date_from?: string
       date_to?: string
       time_range?: string
+      seller_id?: number
       page: number
       per_page: number
     } = {
@@ -52,6 +55,9 @@ export function useOrders() {
     if (startDate.value) params.date_from = startDate.value
     if (endDate.value) params.date_to = endDate.value
     if (timeRangeFilter.value) params.time_range = timeRangeFilter.value
+    if (sellerIdFilter.value != null && sellerIdFilter.value > 0) {
+      params.seller_id = sellerIdFilter.value
+    }
     return params
   }
 
@@ -198,6 +204,11 @@ export function useOrders() {
     loadOrders()
   }
 
+  const applySellerFilter = (sellerId: number | null) => {
+    sellerIdFilter.value = sellerId != null && sellerId > 0 ? sellerId : null
+    return loadOrders()
+  }
+
   const loadTimePeriods = async () => {
     try {
       const response = await ordersService.getTimePeriods()
@@ -218,7 +229,9 @@ export function useOrders() {
     loadOrders()
   }
   
-  loadOrders()
+  if (options?.autoLoad !== false) {
+    loadOrders()
+  }
   
   return {
     orders,
@@ -228,6 +241,7 @@ export function useOrders() {
     startDate,
     endDate,
     timeRangeFilter,
+    sellerIdFilter,
     timePeriods,
     error,
     hasMoreOrders,
@@ -251,6 +265,7 @@ export function useOrders() {
     filterByPaymentMethod,
     filterByDateRange,
     filterByTimeRange,
+    applySellerFilter,
     loadTimePeriods,
     refresh: loadOrders,
     clearFilters

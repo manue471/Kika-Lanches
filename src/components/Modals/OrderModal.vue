@@ -255,15 +255,23 @@
         <h3 class="section-title">Pagamento</h3>
         <div class="form-grid form-grid-payment">
           <div class="form-group form-group-full">
-            <label for="payment_method" class="form-label">Método de pagamento *</label>
-            <BaseSelect
-              id="payment_method"
-              v-model="form.payment_method"
-              :options="paymentMethodOptions"
-              placeholder="Selecione o método de pagamento"
-              :error="errors.payment_method"
-              required
-            />
+            <span id="payment_method_label" class="form-label">Método de pagamento *</span>
+            <div class="payment-method-radios" role="radiogroup" aria-labelledby="payment_method_label">
+              <label
+                v-for="option in paymentMethodOptions"
+                :key="option.value"
+                class="payment-radio"
+              >
+                <input
+                  type="radio"
+                  name="payment_method"
+                  :value="option.value"
+                  v-model="form.payment_method"
+                />
+                <span>{{ option.label }}</span>
+              </label>
+            </div>
+            <small v-if="errors.payment_method" class="payment-method-error">{{ errors.payment_method }}</small>
           </div>
         </div>
 
@@ -493,7 +501,7 @@ const emit = defineEmits<{
   'success': [order: Order]
 }>()
 
-const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, isLoading: isLoadingOrder, refresh } = useOrders()
+const { createOrder, updateOrder, getOrderById, isCreating, isUpdating, isLoading: isLoadingOrder, refresh } = useOrders({ autoLoad: false })
 const { products, loadProducts } = useProducts()
 const { customers, loadCustomers } = useCustomers()
 const { 
@@ -514,7 +522,7 @@ const form = ref({
   products: [
     { product_id: 0, quantity: 1 }
   ],
-  payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
+  payment_method: 'dinheiro' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
   paid_amount: undefined as number | undefined,
   debt_amount: undefined as number | undefined,
   payment_methods: [] as string[],
@@ -696,10 +704,10 @@ console.log('Initial stock confirm state:', showStockConfirm.value)
 const formatCurrency = currency
 
 const paymentMethodOptions = [
-  { value: 'cartao_credito', label: 'Cartão de Crédito' },
-  { value: 'pix', label: 'PIX' },
   { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'a_prazo', label: 'À Prazo' }
+  { value: 'a_prazo', label: 'À Prazo' },
+  { value: 'pix', label: 'PIX' },
+  { value: 'cartao_credito', label: 'Cartão de Crédito' }
 ]
 
 const secondaryPaymentMethodOptions = computed(() => {
@@ -958,7 +966,7 @@ const resetForm = () => {
     products: [
       { product_id: 0, quantity: 1 }
     ],
-    payment_method: 'pix' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
+    payment_method: 'dinheiro' as 'cartao_credito' | 'pix' | 'dinheiro' | 'a_prazo',
     paid_amount: undefined,
     debt_amount: undefined,
     payment_methods: [],
@@ -1654,6 +1662,41 @@ const handleStockCancel = () => {
 .order-form {
   .form-grid-payment {
     grid-template-columns: 1fr;
+  }
+
+  .payment-method-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+  }
+
+  .payment-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    background: var(--white);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--gray-800);
+
+    input {
+      margin: 0;
+      accent-color: var(--primary);
+    }
+
+    &:has(input:checked) {
+      border-color: var(--primary);
+      background: rgba(92, 219, 149, 0.12);
+      font-weight: 600;
+    }
+  }
+
+  .payment-method-error {
+    color: var(--danger);
+    font-size: var(--font-size-sm);
   }
 
   .form-group-full {
