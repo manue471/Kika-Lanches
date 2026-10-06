@@ -151,7 +151,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
-import { useFormatter } from '@/composables/useUtils'
+import { useDateUtils, useFormatter } from '@/composables/useUtils'
 import { useWebShare } from '@/composables/useWebShare'
 import { reportsService } from '@/services/api/reports'
 import BaseCard from '@/components/Base/Card.vue'
@@ -162,6 +162,7 @@ import BaseLoading from '@/components/Base/Loading.vue'
 import type { DailyProductsResponse } from '@/types/api'
 
 const { currency, date } = useFormatter()
+const { toInputFormat } = useDateUtils()
 const formatCurrency = currency
 const formatDate = (dateString: string) => date(new Date(dateString))
 const toast = useToast()
@@ -172,7 +173,7 @@ const dailyProducts = ref<DailyProductsResponse | null>(null)
 const isLoadingProducts = ref(false)
 const isExportingPdf = ref(false)
 const productsError = ref<string | null>(null)
-const productsDateFilter = ref<string>(new Date().toISOString().split('T')[0])
+const productsDateFilter = ref<string>(toInputFormat(new Date()))
 const productsPeriodFilter = ref<'manha' | 'tarde' | ''>('')
 
 function defaultRangeInputs() {

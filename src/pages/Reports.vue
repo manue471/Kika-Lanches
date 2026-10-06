@@ -448,7 +448,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useReports } from '@/composables/useReports'
 import { useAuth } from '@/composables/useAuth'
-import { useFormatter } from '@/composables/useUtils'
+import { useDateUtils, useFormatter } from '@/composables/useUtils'
 import { useWebShare } from '@/composables/useWebShare'
 import { reportsService } from '@/services/api/reports'
 import { usersService } from '@/services/api/users'
@@ -480,6 +480,7 @@ const {
 } = useReports()
 
 const { currency, date } = useFormatter()
+const { toInputFormat } = useDateUtils()
 const { shareFile, isSupported: isShareSupported, isSharing } = useWebShare()
 const formatCurrency = currency
 const formatDate = (dateString: string) => date(new Date(dateString))
@@ -504,10 +505,8 @@ const salesPresetOptions = [
 ]
 
 const today = new Date()
-const salesStartDate = ref(
-  new Date(today.getTime() - 7 * 86400000).toISOString().split('T')[0]
-)
-const salesEndDate = ref(today.toISOString().split('T')[0])
+const salesStartDate = ref(toInputFormat(new Date(today.getTime() - 7 * 86400000)))
+const salesEndDate = ref(toInputFormat(today))
 
 const salesStatusFilter = ref<string>('')
 const salesStatusFilterOptions = [
@@ -614,7 +613,7 @@ const loadCreditSales = async (page: number) => {
 }
 
 function creditDelinquentPdfFilename() {
-  return `clientes-saldo-conta-a-prazo-${new Date().toISOString().split('T')[0]}.pdf`
+  return `clientes-saldo-conta-a-prazo-${toInputFormat(new Date())}.pdf`
 }
 
 const exportCreditDelinquentPdf = async (download: boolean) => {
