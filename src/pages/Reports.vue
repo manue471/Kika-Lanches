@@ -36,6 +36,7 @@
         Crédito à prazo
       </button>
       <button
+        v-if="canPickSeller"
         type="button"
         class="hub-tab"
         :class="{ active: activeSection === 'cashbook' }"
@@ -214,7 +215,7 @@
           class="report-card full-width"
         >
           <p class="sales-lines-hint">
-            Uma linha por item de pedido (cliente, produto, valor da linha, data/hora do pedido).
+            Uma linha por item de pedido (cliente, produto, valor da linha, forma de pagamento, data/hora do pedido).
           </p>
           <div class="sales-lines-scroll">
             <div class="sales-lines-table">
@@ -222,13 +223,15 @@
                 <span>Cliente</span>
                 <span>Produto</span>
                 <span>Valor</span>
+                <span>Pagamento</span>
                 <span>Data da venda</span>
               </div>
               <div v-for="(row, i) in salesReport.sales" :key="i" class="sales-lines-row">
                 <span>{{ row.customer_name }}</span>
                 <span class="sales-line-product" :title="row.product_name">{{ row.product_name }}</span>
-                <span>{{ formatCurrency(Number(row.amount) || 0) }}</span>
-                <span>{{ formatShortDate(row.sold_at) }}</span>
+                <span class="sales-line-nowrap">{{ formatCurrency(Number(row.amount) || 0) }}</span>
+                <span class="sales-line-nowrap">{{ row.payment || '—' }}</span>
+                <span class="sales-line-nowrap">{{ formatShortDate(row.sold_at) }}</span>
               </div>
             </div>
           </div>
@@ -248,7 +251,7 @@
     </div>
 
     <!-- Livro-caixa -->
-    <div v-show="activeSection === 'cashbook'" class="section-panel">
+    <div v-if="canPickSeller" v-show="activeSection === 'cashbook'" class="section-panel">
       <ReportsCashbookSection
         :active="activeSection === 'cashbook'"
         :can-pick-seller="canPickSeller"
@@ -657,12 +660,19 @@ const shareCreditDelinquentPdf = async () => {
   }
 }
 
-const moreReportType = ref<'financial' | 'customers' | 'products'>('financial')
-const moreTypeOptions = [
-  { value: 'financial', label: 'Financeiro' },
-  { value: 'customers', label: 'Clientes (resumo)' },
-  { value: 'products', label: 'Produtos (resumo)' }
-]
+const moreReportType = ref<'financial' | 'customers' | 'products'>(
+  canPickSeller.value ? 'financial' : 'customers'
+)
+const moreTypeOptions = computed(() => {
+  const options: { value: 'financial' | 'customers' | 'products'; label: string }[] = [
+    { value: 'customers', label: 'Clientes (resumo)' },
+    { value: 'products', label: 'Produtos (resumo)' }
+  ]
+  if (canPickSeller.value) {
+    return [{ value: 'financial' as const, label: 'Financeiro' }, ...options]
+  }
+  return options
+})
 const moreStart = ref(salesStartDate.value)
 const moreEnd = ref(salesEndDate.value)
 const moreLoading = ref(false)
@@ -683,6 +693,9 @@ const generateMoreReport = async () => {
 }
 
 function setSection(s: HubSection) {
+  if (s === 'cashbook' && !canPickSeller.value) {
+    s = 'sales'
+  }
   activeSection.value = s
   router.replace({ query: { ...route.query, section: s } })
 }
@@ -825,6 +838,11 @@ watch(
   () => route.query.section,
   (s) => {
     const v = String(s || '')
+    if (v === 'cashbook' && !canPickSeller.value) {
+      activeSection.value = 'sales'
+      router.replace({ query: { ...route.query, section: 'sales' } })
+      return
+    }
     if (['sales', 'products', 'credit', 'cashbook', 'more'].includes(v)) {
       activeSection.value = v as HubSection
     }
@@ -857,6 +875,12 @@ watch(activeSection, (s) => {
 watch(
   canPickSeller,
   (ok) => {
+    if (!ok && moreReportType.value === 'financial') {
+      moreReportType.value = 'customers'
+    }
+    if (!ok && activeSection.value === 'cashbook') {
+      setSection('sales')
+    }
     if (
       ok &&
       (activeSection.value === 'sales' || activeSection.value === 'cashbook') &&
@@ -1051,17 +1075,22 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-width: 520px;
+  min-width: 820px;
 }
 
 .sales-lines-head,
 .sales-lines-row {
   display: grid;
-  grid-template-columns: 1.1fr 1.4fr 0.85fr 1fr;
-  gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-3);
+  grid-template-columns:
+    minmax(180px, 1.7fr)
+    minmax(160px, 1.5fr)
+    minmax(88px, 0.7fr)
+    minmax(140px, 1fr)
+    minmax(148px, 1fr);
+  column-gap: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-4);
   font-size: var(--font-size-sm);
-  align-items: start;
+  align-items: center;
 }
 
 .sales-lines-head {
@@ -1079,6 +1108,10 @@ watch(
 
 .sales-line-product {
   word-break: break-word;
+}
+
+.sales-line-nowrap {
+  white-space: nowrap;
 }
 
 .section-title {
@@ -1257,15 +1290,6 @@ watch(
   .credit-table-head,
   .credit-table-row {
     grid-template-columns: 1fr;
-  }
-
-  .sales-lines-head,
-  .sales-lines-row {
-    grid-template-columns: 1fr;
-  }
-
-  .sales-lines-table {
-    min-width: 0;
   }
 }
 </style>
