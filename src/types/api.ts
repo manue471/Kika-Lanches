@@ -78,7 +78,16 @@ export interface CustomerReportResponse {
     total_spent: number
     average_order_value: number
     last_order_date: string
+    period_paid?: number
   }
+  period_payments?: Array<{
+    id: number
+    amount: number
+    payment_method: string | null
+    payment_method_label: string
+    balance_after: number
+    created_at: string
+  }>
   recent_orders: Array<{
     id: number
     order_number: string

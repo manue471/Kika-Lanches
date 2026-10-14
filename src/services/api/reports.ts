@@ -542,6 +542,58 @@ export class ReportsService {
     })
     return pdfBlobFromResponse(response)
   }
+
+  async getDebtLedger(params: {
+    from_date?: string
+    to_date?: string
+    type?: string
+    customer?: string
+    page?: number
+    per_page?: number
+  }): Promise<{
+    summary: { count: number; debits_total: number; payments_total: number }
+    entries: {
+      data: Array<{
+        id: number
+        type: string
+        type_label: string
+        amount: number
+        payment_method_label: string
+        balance_after: number
+        created_at: string
+        customer_name: string
+      }>
+      current_page: number
+      last_page: number
+    }
+  }> {
+    const q = new URLSearchParams()
+    if (params.from_date) q.append('from_date', params.from_date)
+    if (params.to_date) q.append('to_date', params.to_date)
+    if (params.type) q.append('type', params.type)
+    if (params.customer) q.append('customer', params.customer)
+    if (params.page != null) q.append('page', String(params.page))
+    if (params.per_page != null) q.append('per_page', String(params.per_page))
+    const qs = q.toString()
+    return await apiClient.get(`/reports/debt-ledger${qs ? `?${qs}` : ''}`)
+  }
+
+  async getDebtLedgerPdf(
+    params: { from_date?: string; to_date?: string; type?: string; customer?: string },
+    options?: { download?: boolean }
+  ): Promise<Blob> {
+    const q = new URLSearchParams()
+    if (params.from_date) q.append('from_date', params.from_date)
+    if (params.to_date) q.append('to_date', params.to_date)
+    if (params.type) q.append('type', params.type)
+    if (params.customer) q.append('customer', params.customer)
+    if (options?.download) q.append('download', '1')
+    const qs = q.toString()
+    const response = await apiClient.getRaw(`/reports/debt-ledger/pdf${qs ? `?${qs}` : ''}`, {
+      responseType: 'blob'
+    })
+    return response.data
+  }
 }
 
 // Export singleton instance

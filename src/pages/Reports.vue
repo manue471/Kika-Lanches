@@ -372,6 +372,115 @@
           </div>
         </BaseCard>
       </template>
+
+      <BaseCard class="filters-card">
+        <h3 class="section-title">Histórico de quitações e débitos</h3>
+        <p class="hint">
+          Lançamentos da conta à prazo de todos os clientes. A consulta fica disponível nesta aba, com filtro por data.
+        </p>
+        <div class="filters-row date-row">
+          <BaseInput v-model="ledgerStart" type="date" label="Início" />
+          <BaseInput v-model="ledgerEnd" type="date" label="Fim" />
+          <BaseSelect v-model="ledgerType" :options="ledgerTypeOptions" label="Tipo" />
+          <BaseInput v-model="ledgerCustomer" label="Cliente" placeholder="Nome do cliente" />
+        </div>
+        <div class="filters-row sales-actions-row">
+          <BaseButton variant="primary" :loading="ledgerLoading" @click="loadDebtLedger(1)">
+            Buscar
+          </BaseButton>
+          <BaseButton
+            variant="secondary"
+            :loading="ledgerPdfLoading"
+            :disabled="ledgerLoading || isSharing"
+            @click="exportDebtLedgerPdf(false)"
+          >
+            Abrir PDF
+          </BaseButton>
+          <BaseButton
+            variant="secondary"
+            :loading="ledgerPdfLoading"
+            :disabled="ledgerLoading || isSharing"
+            @click="exportDebtLedgerPdf(true)"
+          >
+            Baixar PDF
+          </BaseButton>
+          <BaseButton
+            v-if="isShareSupported"
+            variant="success"
+            :disabled="ledgerLoading || ledgerPdfLoading || isSharing"
+            :loading="isSharing"
+            @click="shareDebtLedgerPdf"
+          >
+            {{ ledgerPdfLoading || isSharing ? 'Gerando...' : 'Compartilhar' }}
+          </BaseButton>
+        </div>
+      </BaseCard>
+
+      <BaseCard v-if="ledgerError" class="error-card">
+        <p>{{ ledgerError }}</p>
+      </BaseCard>
+
+      <template v-else-if="ledgerData">
+        <BaseCard class="report-card full-width">
+          <div class="report-summary">
+            <div class="summary-item">
+              <span class="summary-label">Lançamentos</span>
+              <span class="summary-value">{{ ledgerData.summary.count }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Débitos</span>
+              <span class="summary-value">{{ formatCurrency(Number(ledgerData.summary.debits_total) || 0) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Quitações</span>
+              <span class="summary-value">{{ formatCurrency(Number(ledgerData.summary.payments_total) || 0) }}</span>
+            </div>
+          </div>
+        </BaseCard>
+
+        <BaseCard title="Lançamentos" class="report-card full-width">
+          <div v-if="!ledgerRows.length" class="empty-inline">Nenhum lançamento no filtro.</div>
+          <div v-else class="sales-lines-scroll">
+            <div class="ledger-table">
+              <div class="ledger-head">
+                <span>Data</span>
+                <span>Cliente</span>
+                <span>Tipo</span>
+                <span>Valor</span>
+                <span>Forma</span>
+                <span>Saldo após</span>
+              </div>
+              <div v-for="row in ledgerRows" :key="row.id" class="ledger-row">
+                <span class="sales-line-nowrap">{{ formatShortDate(row.created_at) }}</span>
+                <span>{{ row.customer_name }}</span>
+                <span>{{ row.type_label }}</span>
+                <span class="sales-line-nowrap">{{ formatCurrency(Number(row.amount) || 0) }}</span>
+                <span>{{ row.type === 'payment' ? row.payment_method_label : '—' }}</span>
+                <span class="sales-line-nowrap">{{ formatCurrency(Number(row.balance_after) || 0) }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="ledgerLastPage > 1" class="pagination-bar">
+            <BaseButton
+              variant="secondary"
+              size="sm"
+              :disabled="ledgerPage <= 1 || ledgerLoading"
+              @click="loadDebtLedger(ledgerPage - 1)"
+            >
+              Anterior
+            </BaseButton>
+            <span class="page-info">Página {{ ledgerPage }} de {{ ledgerLastPage }}</span>
+            <BaseButton
+              variant="secondary"
+              size="sm"
+              :disabled="ledgerPage >= ledgerLastPage || ledgerLoading"
+              @click="loadDebtLedger(ledgerPage + 1)"
+            >
+              Próxima
+            </BaseButton>
+          </div>
+        </BaseCard>
+      </template>
     </div>
 
     <!-- Outros -->
@@ -577,6 +686,113 @@ const creditLoading = ref(false)
 const creditError = ref<string | null>(null)
 const creditPage = ref(1)
 const creditDelinquentPdfLoading = ref(false)
+
+const ledgerStart = ref(toInputFormat(new Date(today.getFullYear(), today.getMonth(), 1)))
+const ledgerEnd = ref(toInputFormat(today))
+const ledgerType = ref('')
+const ledgerCustomer = ref('')
+const ledgerTypeOptions = [
+  { value: '', label: 'Débitos e quitações' },
+  { value: 'payment', label: 'Somente quitações' },
+  { value: 'debit', label: 'Somente débitos' }
+]
+const ledgerLoading = ref(false)
+const ledgerPdfLoading = ref(false)
+const ledgerError = ref<string | null>(null)
+const ledgerPage = ref(1)
+const ledgerData = ref<{
+  summary: { count: number; debits_total: number; payments_total: number }
+  entries: {
+    data: Array<{
+      id: number
+      type: string
+      type_label: string
+      amount: number
+      payment_method_label: string
+      balance_after: number
+      created_at: string
+      customer_name: string
+    }>
+    last_page: number
+  }
+} | null>(null)
+
+const ledgerRows = computed(() => ledgerData.value?.entries?.data ?? [])
+const ledgerLastPage = computed(() => ledgerData.value?.entries?.last_page ?? 1)
+
+function ledgerFilters() {
+  return {
+    from_date: ledgerStart.value || undefined,
+    to_date: ledgerEnd.value || undefined,
+    type: ledgerType.value || undefined,
+    customer: ledgerCustomer.value.trim() || undefined
+  }
+}
+
+const loadDebtLedger = async (page: number) => {
+  ledgerLoading.value = true
+  ledgerError.value = null
+  ledgerPage.value = page
+  try {
+    ledgerData.value = await reportsService.getDebtLedger({
+      ...ledgerFilters(),
+      page,
+      per_page: 20
+    })
+  } catch (e: any) {
+    ledgerError.value = e?.message || 'Erro ao carregar quitações e débitos'
+    ledgerData.value = null
+  } finally {
+    ledgerLoading.value = false
+  }
+}
+
+function debtLedgerPdfFilename() {
+  const start = ledgerStart.value || 'inicio'
+  const end = ledgerEnd.value || 'fim'
+  return `quitacoes-debitos-${start}-${end}.pdf`
+}
+
+const exportDebtLedgerPdf = async (download: boolean) => {
+  ledgerPdfLoading.value = true
+  try {
+    const blob = await reportsService.getDebtLedgerPdf(ledgerFilters(), { download })
+    const url = URL.createObjectURL(blob)
+    if (download) {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = debtLedgerPdfFilename()
+      link.click()
+      toast.success('PDF baixado com sucesso')
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+    URL.revokeObjectURL(url)
+  } catch (e: any) {
+    toast.error(e?.message || 'Erro ao gerar PDF de quitações e débitos')
+  } finally {
+    ledgerPdfLoading.value = false
+  }
+}
+
+const shareDebtLedgerPdf = async () => {
+  ledgerPdfLoading.value = true
+  try {
+    const blob = await reportsService.getDebtLedgerPdf(ledgerFilters(), { download: false })
+    await shareFile(
+      blob,
+      debtLedgerPdfFilename(),
+      'Quitações e débitos',
+      'Histórico de quitações e débitos (PDF)'
+    )
+  } catch (e: any) {
+    if (e?.name !== 'AbortError') {
+      toast.error(e?.message || 'Erro ao gerar PDF para compartilhar')
+    }
+  } finally {
+    ledgerPdfLoading.value = false
+  }
+}
 
 const creditOrders = computed<Order[]>(() => {
   const o = creditData.value?.orders
@@ -859,6 +1075,7 @@ onMounted(() => {
       generateSales()
     } else if (activeSection.value === 'credit') {
       loadCreditSales(1)
+      loadDebtLedger(1)
     }
   })
 })
@@ -866,6 +1083,9 @@ onMounted(() => {
 watch(activeSection, (s) => {
   if (s === 'credit' && !creditData.value && !creditLoading.value) {
     loadCreditSales(1)
+  }
+  if (s === 'credit' && !ledgerData.value && !ledgerLoading.value) {
+    loadDebtLedger(1)
   }
   if ((s === 'sales' || s === 'cashbook') && canPickSeller.value && sellerUsers.value.length === 0) {
     loadSellerUsersForReports()
@@ -1265,6 +1485,38 @@ watch(
 }
 
 .credit-table-row {
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ledger-table {
+  min-width: 860px;
+}
+
+.ledger-head,
+.ledger-row {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 1.1fr)
+    minmax(180px, 1.6fr)
+    minmax(100px, 0.8fr)
+    minmax(90px, 0.7fr)
+    minmax(140px, 1fr)
+    minmax(110px, 0.8fr);
+  column-gap: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  align-items: center;
+}
+
+.ledger-head {
+  position: sticky;
+  top: 0;
+  font-weight: 600;
+  background: var(--gray-50);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.ledger-row {
   border-bottom: 1px solid var(--gray-100);
 }
 

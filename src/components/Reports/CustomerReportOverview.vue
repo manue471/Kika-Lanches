@@ -51,6 +51,38 @@
           <span class="summary-label">Último Pedido</span>
           <span class="summary-value">{{ formatDate(customerReport.summary.last_order_date) }}</span>
         </div>
+        <div v-if="(customerReport.summary.period_paid || 0) > 0" class="summary-item">
+          <span class="summary-label">Pago no período</span>
+          <span class="summary-value">{{ formatCurrency(customerReport.summary.period_paid || 0) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="customerReport.period_payments?.length" class="orders-section">
+      <h3>Pagamentos no período</h3>
+      <div class="orders-list">
+        <div
+          v-for="payment in customerReport.period_payments"
+          :key="payment.id"
+          class="order-item"
+        >
+          <div class="order-header">
+            <div class="order-info">
+              <span class="order-date">{{ formatDate(payment.created_at) }}</span>
+            </div>
+            <div class="order-payment">
+              <span class="payment-label">{{ payment.payment_method_label }}</span>
+            </div>
+            <div class="order-total">
+              {{ formatCurrency(payment.amount) }}
+            </div>
+          </div>
+          <div class="order-products">
+            <div class="product-item">
+              <span class="product-name">Saldo após pagamento: {{ formatCurrency(payment.balance_after) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
