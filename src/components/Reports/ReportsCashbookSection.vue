@@ -789,8 +789,9 @@ async function removeOutflow(id: number) {
   }
 
   th {
-    color: var(--gray-600);
+    color: var(--gray-700);
     font-weight: 600;
+    background-color: var(--gray-100);
   }
 
   .col-num {
@@ -831,7 +832,7 @@ async function removeOutflow(id: number) {
 }
 
 .chip-muted {
-  background: var(--gray-50);
+  background: var(--gray-100);
   color: var(--gray-600);
   font-weight: 500;
 }
@@ -872,8 +873,9 @@ async function removeOutflow(id: number) {
   }
 
   th {
-    color: var(--gray-600);
+    color: var(--gray-700);
     font-weight: 600;
+    background-color: var(--gray-100);
   }
 
   .cell-actions {

@@ -260,7 +260,7 @@
     </div>
 
     <!-- Crédito à prazo -->
-    <div v-show="activeSection === 'credit'" class="section-panel">
+    <div v-show="activeSection === 'credit'" class="section-panel credit-stack">
       <BaseCard class="filters-card credit-pdf-card">
         <h3 class="section-title">PDF — Clientes com saldo em aberto</h3>
         <p class="hint credit-pdf-hint">
@@ -297,12 +297,15 @@
         </div>
       </BaseCard>
 
+      <div class="credit-block">
       <BaseCard class="filters-card">
         <h3 class="section-title">Pedidos à prazo no período</h3>
         <p class="hint">Lista pedidos com débito em aberto no intervalo (crédito à prazo).</p>
-        <div class="filters-row date-row">
+        <div class="credit-filters">
           <BaseInput v-model="creditStart" type="datetime-local" label="Início" />
           <BaseInput v-model="creditEnd" type="datetime-local" label="Fim" />
+        </div>
+        <div class="credit-actions">
           <BaseButton
             variant="primary"
             :loading="creditLoading"
@@ -321,23 +324,20 @@
         <BaseButton variant="secondary" @click="loadCreditSales(creditPage)">Tentar novamente</BaseButton>
       </BaseCard>
 
-      <template v-else-if="creditData">
-        <BaseCard class="report-card full-width">
-          <div class="report-summary">
-            <div class="summary-item">
-              <span class="summary-label">Pedidos com saldo</span>
-              <span class="summary-value">{{ creditData.summary.orders_count }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Total em aberto</span>
-              <span class="summary-value">{{ formatCurrency(Number(creditData.summary.total_debt_amount) || 0) }}</span>
-            </div>
+      <BaseCard v-else-if="creditData" title="Pedidos" class="report-card full-width">
+        <div class="credit-stats">
+          <div class="credit-stat">
+            <span class="summary-label">Pedidos com saldo</span>
+            <span class="summary-value">{{ creditData.summary.orders_count }}</span>
           </div>
-        </BaseCard>
-
-        <BaseCard title="Pedidos" class="report-card full-width">
-          <div v-if="!creditOrders.length" class="empty-inline">Nenhum pedido no período.</div>
-          <div v-else class="credit-table">
+          <div class="credit-stat">
+            <span class="summary-label">Total em aberto</span>
+            <span class="summary-value">{{ formatCurrency(Number(creditData.summary.total_debt_amount) || 0) }}</span>
+          </div>
+        </div>
+        <div v-if="!creditOrders.length" class="empty-inline">Nenhum pedido no período.</div>
+        <template v-else>
+          <div class="credit-table">
             <div class="credit-table-head">
               <span>Pedido</span>
               <span>Cliente</span>
@@ -370,21 +370,23 @@
               Próxima
             </BaseButton>
           </div>
-        </BaseCard>
-      </template>
+        </template>
+      </BaseCard>
+      </div>
 
+      <div class="credit-block">
       <BaseCard class="filters-card">
         <h3 class="section-title">Histórico de quitações e débitos</h3>
         <p class="hint">
           Lançamentos da conta à prazo de todos os clientes. A consulta fica disponível nesta aba, com filtro por data.
         </p>
-        <div class="filters-row date-row">
+        <div class="credit-filters">
           <BaseInput v-model="ledgerStart" type="date" label="Início" />
           <BaseInput v-model="ledgerEnd" type="date" label="Fim" />
           <BaseSelect v-model="ledgerType" :options="ledgerTypeOptions" label="Tipo" />
           <BaseInput v-model="ledgerCustomer" label="Cliente" placeholder="Nome do cliente" />
         </div>
-        <div class="filters-row sales-actions-row">
+        <div class="credit-actions">
           <BaseButton variant="primary" :loading="ledgerLoading" @click="loadDebtLedger(1)">
             Buscar
           </BaseButton>
@@ -420,26 +422,22 @@
         <p>{{ ledgerError }}</p>
       </BaseCard>
 
-      <template v-else-if="ledgerData">
-        <BaseCard class="report-card full-width">
-          <div class="report-summary">
-            <div class="summary-item">
-              <span class="summary-label">Lançamentos</span>
-              <span class="summary-value">{{ ledgerData.summary.count }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Débitos</span>
-              <span class="summary-value">{{ formatCurrency(Number(ledgerData.summary.debits_total) || 0) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Quitações</span>
-              <span class="summary-value">{{ formatCurrency(Number(ledgerData.summary.payments_total) || 0) }}</span>
-            </div>
+      <BaseCard v-else-if="ledgerData" title="Lançamentos" class="report-card full-width">
+        <div class="credit-stats">
+          <div class="credit-stat">
+            <span class="summary-label">Lançamentos</span>
+            <span class="summary-value">{{ ledgerData.summary.count }}</span>
           </div>
-        </BaseCard>
-
-        <BaseCard title="Lançamentos" class="report-card full-width">
-          <div v-if="!ledgerRows.length" class="empty-inline">Nenhum lançamento no filtro.</div>
+          <div class="credit-stat">
+            <span class="summary-label">Débitos</span>
+            <span class="summary-value">{{ formatCurrency(Number(ledgerData.summary.debits_total) || 0) }}</span>
+          </div>
+          <div class="credit-stat">
+            <span class="summary-label">Quitações</span>
+            <span class="summary-value">{{ formatCurrency(Number(ledgerData.summary.payments_total) || 0) }}</span>
+          </div>
+        </div>
+        <div v-if="!ledgerRows.length" class="empty-inline">Nenhum lançamento no filtro.</div>
           <div v-else class="sales-lines-scroll">
             <div class="ledger-table">
               <div class="ledger-head">
@@ -479,8 +477,8 @@
               Próxima
             </BaseButton>
           </div>
-        </BaseCard>
-      </template>
+      </BaseCard>
+      </div>
     </div>
 
     <!-- Outros -->
@@ -1181,6 +1179,62 @@ watch(
 
 .section-panel {
   min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+}
+
+.section-panel > .filters-card,
+.section-panel > .error-card {
+  margin-bottom: 0;
+}
+
+.credit-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+}
+
+.credit-stack .filters-card,
+.credit-stack .error-card {
+  margin-bottom: 0;
+}
+
+.credit-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+}
+
+.credit-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-4);
+  align-items: end;
+}
+
+.credit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-5);
+}
+
+.credit-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-5);
+}
+
+.credit-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-4);
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
 }
 
 .filters-card {
@@ -1316,10 +1370,12 @@ watch(
 .sales-lines-head {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   font-weight: 600;
-  background: var(--gray-50);
-  border-bottom: 2px solid var(--gray-200);
+  color: var(--gray-700);
+  background-color: var(--gray-100);
+  border-bottom: 1px solid var(--gray-200);
+  box-shadow: 0 1px 0 var(--gray-200);
 }
 
 .sales-lines-row {
@@ -1481,7 +1537,11 @@ watch(
 
 .credit-table-head {
   font-weight: 600;
-  border-bottom: 2px solid var(--gray-200);
+  color: var(--gray-700);
+  background-color: var(--gray-100);
+  border-bottom: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3) var(--spacing-2);
 }
 
 .credit-table-row {
@@ -1511,9 +1571,19 @@ watch(
 .ledger-head {
   position: sticky;
   top: 0;
+  z-index: 2;
   font-weight: 600;
-  background: var(--gray-50);
-  border-bottom: 2px solid var(--gray-200);
+  color: var(--gray-700);
+  background-color: var(--gray-100);
+  border-bottom: 1px solid var(--gray-200);
+  box-shadow: 0 1px 0 var(--gray-200);
+}
+
+.ledger-head span:nth-child(4),
+.ledger-head span:nth-child(6),
+.ledger-row span:nth-child(4),
+.ledger-row span:nth-child(6) {
+  text-align: right;
 }
 
 .ledger-row {

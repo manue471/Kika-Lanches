@@ -376,8 +376,12 @@ onMounted(() => {
   }
   .products-table-header {
     font-weight: 600;
-    border-bottom: 2px solid var(--gray-200);
     font-size: var(--font-size-sm);
+    color: var(--gray-700);
+    background-color: var(--gray-100);
+    border-bottom: 1px solid var(--gray-200);
+    padding: var(--spacing-3) var(--spacing-2);
+    border-radius: var(--radius-md);
   }
   .products-table-row {
     border-bottom: 1px solid var(--gray-100);
