@@ -45,8 +45,14 @@ export function useCustomerReports() {
     () => !!(selectedFromDate.value && selectedToDate.value)
   )
 
+  const isOpenCreditMode = computed(() => selectedPaymentMethod.value === 'a_prazo')
+
   const activeFilterLabels = computed(() => {
     const labels: string[] = []
+    if (isOpenCreditMode.value) {
+      labels.push('À Prazo (em aberto)')
+      return labels
+    }
     if (hasCustomDateRange.value) {
       labels.push(`De ${selectedFromDate.value} até ${selectedToDate.value}`)
     } else if (selectedPeriod.value) {
@@ -93,10 +99,14 @@ export function useCustomerReports() {
     { value: 'cartao_credito', label: 'Cartão de Crédito' },
     { value: 'pix', label: 'PIX' },
     { value: 'dinheiro', label: 'Dinheiro' },
-    { value: 'a_prazo', label: 'À Prazo' }
+    { value: 'a_prazo', label: 'À Prazo (em aberto)' }
   ]
 
   const buildFilterParams = (): CustomerReportFilterParams => {
+    if (isOpenCreditMode.value) {
+      return { payment_method: 'a_prazo' }
+    }
+
     const params: CustomerReportFilterParams = {
       status: selectedStatus.value || undefined,
       limit: selectedLimit.value || 10,
@@ -229,6 +239,7 @@ export function useCustomerReports() {
     // Computed
     isLoading,
     hasCustomDateRange,
+    isOpenCreditMode,
     activeFilterLabels,
 
     // Options

@@ -39,9 +39,10 @@
             v-model="selectedPeriod"
             :options="periodOptions"
             placeholder="Selecione o período"
-            :disabled="hasCustomDateRange"
+            :disabled="hasCustomDateRange || isOpenCreditMode"
           />
-          <small v-if="hasCustomDateRange" class="filter-hint">Desative as datas para usar o período</small>
+          <small v-if="isOpenCreditMode" class="filter-hint">À prazo lista só o fiado em aberto, sem período.</small>
+          <small v-else-if="hasCustomDateRange" class="filter-hint">Desative as datas para usar o período</small>
         </div>
 
         <div class="filter-group">
@@ -49,6 +50,7 @@
           <BaseInput
             v-model="selectedFromDate"
             type="date"
+            :disabled="isOpenCreditMode"
           />
         </div>
 
@@ -57,6 +59,7 @@
           <BaseInput
             v-model="selectedToDate"
             type="date"
+            :disabled="isOpenCreditMode"
           />
         </div>
         
@@ -66,6 +69,7 @@
             v-model="selectedStatus"
             :options="statusOptions"
             placeholder="Todos os status"
+            :disabled="isOpenCreditMode"
           />
         </div>
         
@@ -77,6 +81,7 @@
             placeholder="10"
             min="1"
             max="100"
+            :disabled="isOpenCreditMode"
           />
         </div>
         
@@ -227,6 +232,7 @@ const {
   selectedFromDate,
   selectedToDate,
   hasCustomDateRange,
+  isOpenCreditMode,
   activeFilterLabels,
   periodOptions,
   statusOptions,

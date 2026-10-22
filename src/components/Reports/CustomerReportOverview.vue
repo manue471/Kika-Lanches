@@ -7,7 +7,7 @@
         <p>Relatório de Cliente</p>
       </div>
       <div class="report-info">
-        <p><strong>Período:</strong> {{ customerReport.period_info.period_label }}</p>
+        <p><strong>Período:</strong> {{ isOpenCredit ? 'Conta em aberto' : customerReport.period_info.period_label }}</p>
         <p><strong>Data:</strong> {{ formatDate(new Date()) }}</p>
       </div>
     </div>
@@ -36,29 +36,29 @@
       <h3>📊 Resumo</h3>
       <div class="summary-grid">
         <div class="summary-item">
-          <span class="summary-label">Total de Pedidos</span>
+          <span class="summary-label">{{ isOpenCredit ? 'Pedidos em aberto' : 'Total de Pedidos' }}</span>
           <span class="summary-value">{{ customerReport.summary.total_orders }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Valor Total Gasto</span>
-          <span class="summary-value">{{ formatCurrency(customerReport.summary.total_spent) }}</span>
+          <span class="summary-label">{{ isOpenCredit ? 'Em aberto' : 'Valor Total Gasto' }}</span>
+          <span class="summary-value">{{ formatCurrency(isOpenCredit ? (customerReport.summary.customer_balance ?? customerReport.summary.total_spent) : customerReport.summary.total_spent) }}</span>
         </div>
-        <div class="summary-item">
+        <div v-if="!isOpenCredit" class="summary-item">
           <span class="summary-label">Ticket Médio</span>
           <span class="summary-value">{{ formatCurrency(customerReport.summary.average_order_value) }}</span>
         </div>
-        <div class="summary-item">
+        <div v-if="customerReport.summary.last_order_date" class="summary-item">
           <span class="summary-label">Último Pedido</span>
           <span class="summary-value">{{ formatDate(customerReport.summary.last_order_date) }}</span>
         </div>
-        <div v-if="(customerReport.summary.period_paid || 0) > 0" class="summary-item">
+        <div v-if="!isOpenCredit && (customerReport.summary.period_paid || 0) > 0" class="summary-item">
           <span class="summary-label">Pago no período</span>
           <span class="summary-value">{{ formatCurrency(customerReport.summary.period_paid || 0) }}</span>
         </div>
       </div>
     </div>
 
-    <div v-if="customerReport.period_payments?.length" class="orders-section">
+    <div v-if="!isOpenCredit && customerReport.period_payments?.length" class="orders-section">
       <h3>Pagamentos no período</h3>
       <div class="orders-list">
         <div
@@ -88,9 +88,9 @@
 
     <!-- Recent Orders -->
     <div class="orders-section">
-      <h3>🛒 Pedidos Recentes</h3>
+      <h3>{{ isOpenCredit ? 'Em aberto' : 'Pedidos Recentes' }}</h3>
       <div v-if="customerReport.recent_orders.length === 0" class="no-orders">
-        <p>Nenhum pedido encontrado no período selecionado.</p>
+        <p>{{ isOpenCredit ? 'Nenhum débito em aberto.' : 'Nenhum pedido encontrado no período selecionado.' }}</p>
       </div>
       <div v-else class="orders-list">
         <div 
@@ -111,7 +111,7 @@
               <StatusBadge :status="order.status" />
             </div>
             <div class="order-total">
-              {{ formatCurrency(order.total_amount) }}
+              {{ formatCurrency(isOpenCredit ? (order.debt_amount ?? order.total_amount) : order.total_amount) }}
             </div>
           </div>
           
@@ -134,13 +134,17 @@
       <div class="footer-line"></div>
       <p class="footer-text">
         Relatório gerado em {{ formatDate(new Date()) }}<br>
-        Período: {{ customerReport.period_info.date_range.from }} a {{ customerReport.period_info.date_range.to }}
+        <template v-if="isOpenCredit">Conta em aberto</template>
+        <template v-else-if="customerReport.period_info.date_range">
+          Período: {{ customerReport.period_info.date_range.from }} a {{ customerReport.period_info.date_range.to }}
+        </template>
       </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useFormatter } from '@/composables/useUtils'
 import StatusBadge from '@/components/Business/StatusBadge.vue'
 import type { CustomerReportResponse } from '@/types/api'
@@ -149,7 +153,13 @@ interface Props {
   customerReport: CustomerReportResponse
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const isOpenCredit = computed(
+  () =>
+    props.customerReport.filters?.open_credit === true ||
+    props.customerReport.filters?.payment_method === 'a_prazo'
+)
 
 const { currency, date } = useFormatter()
 

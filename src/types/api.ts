@@ -79,6 +79,9 @@ export interface CustomerReportResponse {
     average_order_value: number
     last_order_date: string
     period_paid?: number
+    total_debt?: number
+    total_paid?: number
+    customer_balance?: number
   }
   period_payments?: Array<{
     id: number
@@ -94,6 +97,7 @@ export interface CustomerReportResponse {
     status: Order['status']
     payment_method: Order['payment_method']
     total_amount: number
+    debt_amount?: number | null
     created_at: string
     products: Array<{
       id: number
@@ -106,17 +110,19 @@ export interface CustomerReportResponse {
   filters: {
     limit: number
     status: string | null
-    from_date: string
-    to_date: string
-    period: string
+    payment_method?: string | null
+    from_date: string | null
+    to_date: string | null
+    period: string | null
+    open_credit?: boolean
   }
   period_info: {
-    applied_period: string
+    applied_period: string | null
     date_range: {
       from: string
       to: string
-    }
-    period_label: string
+    } | null
+    period_label: string | null
   }
 }
 
