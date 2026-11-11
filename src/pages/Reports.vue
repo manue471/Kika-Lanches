@@ -337,6 +337,7 @@
         </div>
         <div v-if="!creditOrders.length" class="empty-inline">Nenhum pedido no período.</div>
         <template v-else>
+          <div class="sales-lines-scroll">
           <div class="credit-table">
             <div class="credit-table-head">
               <span>Pedido</span>
@@ -350,6 +351,7 @@
               <span>{{ formatCurrency(Number(order.debt_amount) || 0) }}</span>
               <span>{{ formatShortDate(order.created_at) }}</span>
             </div>
+          </div>
           </div>
           <div v-if="creditLastPage > 1" class="pagination-bar">
             <BaseButton
@@ -1551,14 +1553,21 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-width: 560px;
+  width: max-content;
 }
 
 .credit-table-head,
 .credit-table-row {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 1fr 1fr;
-  gap: var(--spacing-2);
-  padding: var(--spacing-2) 0;
+  grid-template-columns:
+    minmax(80px, 0.7fr)
+    minmax(200px, 1.8fr)
+    minmax(100px, 0.9fr)
+    minmax(140px, 1fr);
+  column-gap: var(--spacing-4);
+  align-items: center;
+  padding: var(--spacing-3) var(--spacing-4);
   font-size: var(--font-size-sm);
 }
 
@@ -1567,8 +1576,9 @@ watch(
   color: var(--gray-700);
   background-color: var(--gray-100);
   border-bottom: 1px solid var(--gray-200);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3) var(--spacing-2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .credit-table-row {
@@ -1577,6 +1587,7 @@ watch(
 
 .ledger-table {
   min-width: 860px;
+  width: max-content;
 }
 
 .ledger-head,
@@ -1641,10 +1652,4 @@ watch(
   color: var(--gray-600);
 }
 
-@media (max-width: 768px) {
-  .credit-table-head,
-  .credit-table-row {
-    grid-template-columns: 1fr;
-  }
-}
 </style>
