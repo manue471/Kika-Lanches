@@ -60,8 +60,11 @@
 
         <!-- Estoque -->
         <div class="form-group">
-          <label for="stock_quantity" class="form-label">Estoque</label>
+          <label for="stock_quantity" class="form-label">
+            {{ isEditing ? 'Estoque atual' : 'Estoque inicial' }}
+          </label>
           <BaseInput
+            v-if="!isEditing"
             id="stock_quantity"
             v-model="form.stock_quantity"
             type="number"
@@ -69,6 +72,18 @@
             placeholder="0"
             :error="errors.stock_quantity"
           />
+          <template v-else>
+            <BaseInput
+              id="stock_quantity"
+              :model-value="form.stock_quantity"
+              type="number"
+              readonly
+              disabled
+            />
+            <small class="form-hint">
+              Para dar entrada, registrar saída ou fazer contagem, use o botão "Estoque" no card do produto.
+            </small>
+          </template>
         </div>
 
       </div>
@@ -212,7 +227,7 @@ watch(() => props.show, async (show) => {
             sku: product.sku || '',
             category_id: product.category_id,
             is_active: product.is_active,
-            stock_quantity: product.stock_quantity || 0,
+            stock_quantity: product.stock?.quantity ?? product.stock_quantity ?? 0,
             image: product.image || '',
             allow_backorder: product.stock?.allow_backorder || false
           }
@@ -241,7 +256,7 @@ const validateForm = (): boolean => {
   }
 
   // Só valida estoque negativo se allow_backorder não estiver ativado
-  if (form.value.stock_quantity !== undefined && form.value.stock_quantity < 0 && !form.value.allow_backorder) {
+  if (!isEditing.value && form.value.stock_quantity !== undefined && form.value.stock_quantity < 0 && !form.value.allow_backorder) {
     errors.value.stock_quantity = 'Estoque não pode ser negativo (a menos que permita venda sem estoque)'
   }
 
@@ -255,7 +270,9 @@ const handleSubmit = async () => {
     let result: Product | null = null
 
     if (isEditing.value && currentProduct.value) {
-      result = await updateProduct(currentProduct.value.id, form.value)
+      // Stock is changed only through movements (entry/exit/count), never overwritten here
+      const { stock_quantity: _stock, ...productData } = form.value
+      result = await updateProduct(currentProduct.value.id, productData)
     } else {
       result = await createProduct(form.value)
     }

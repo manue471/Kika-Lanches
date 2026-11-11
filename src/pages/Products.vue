@@ -1,17 +1,13 @@
 <template>
   <div class="products">
     <!-- Header -->
-    <div class="products-header">
-      <h2>Gerenciar Produtos</h2>
-      <BaseButton 
-        variant="primary" 
-        @click="createNewProduct"
-        :loading="isCreating"
-      >
-        <span class="btn-icon">➕</span>
-        Adicionar Produto
-      </BaseButton>
-    </div>
+    <PageHeader title="Produtos" description="Gerencie o catálogo, preços e estoque">
+      <template #actions>
+        <BaseButton variant="primary" @click="createNewProduct" :loading="isCreating">
+          Adicionar Produto
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <BaseCard class="filters-card">
@@ -159,86 +155,73 @@
     <!-- Products Grid -->
     <div v-else-if="products && products.length > 0" class="products-list-wrap">
       <div class="products-grid" :class="{ 'list-view': viewMode === 'list' }">
-      <BaseCard
+      <article
         v-for="product in products"
         :key="product.id"
         class="product-card"
-        :class="{ 'inactive': !product.is_active }"
+        :class="{ inactive: !product.is_active }"
       >
-        <div class="product-header" v-if="product && product.id">
-          <div class="product-info">
-            <h3 class="product-name">{{ product.name }}</h3>
-            <p class="product-sku" v-if="product.sku">SKU: {{ product.sku }}</p>
-            <p class="product-category" v-if="product.category">
-              {{ product.category.name }}
-            </p>
+        <header class="product-top">
+          <Badge v-if="product.category" variant="neutral">{{ product.category.name }}</Badge>
+          <span v-else />
+          <Badge :variant="product.is_active ? 'success' : 'neutral'">
+            {{ product.is_active ? 'Ativo' : 'Inativo' }}
+          </Badge>
+        </header>
+
+        <div class="product-main">
+          <h3 class="product-name">{{ product.name }}</h3>
+          <p v-if="product.sku" class="product-sku">SKU {{ product.sku }}</p>
+          <p v-if="product.description" class="product-description">{{ product.description }}</p>
+        </div>
+
+        <div class="product-metrics">
+          <div class="metric">
+            <span class="metric-label">Preço</span>
+            <span class="metric-value">{{ formatCurrency(product.price) }}</span>
           </div>
+          <div v-if="getStockQuantity(product) !== undefined" class="metric">
+            <span class="metric-label">Estoque</span>
+            <Badge :variant="stockBadge(product).variant">{{ stockBadge(product).label }}</Badge>
+          </div>
+        </div>
+
+        <footer class="product-footer">
+          <label class="switch" :title="product.is_active ? 'Desativar produto' : 'Ativar produto'">
+            <input
+              type="checkbox"
+              role="switch"
+              :checked="product.is_active"
+              :disabled="isToggling"
+              @change="toggleProductActive(product.id)"
+            >
+            <span class="switch-track" />
+            <span class="switch-text">{{ product.is_active ? 'Ativo' : 'Inativo' }}</span>
+          </label>
+
+          <span v-if="product.created_at" class="created-date">
+            {{ formatDate(product.created_at) }}
+          </span>
+
           <div class="product-actions">
-            <BaseButton
-              size="sm"
-              :variant="product.is_active ? 'success' : 'secondary'"
-              @click="toggleProductActive(product.id)"
-              :loading="isToggling"
-            >
-              {{ product.is_active ? 'Ativo' : 'Inativo' }}
-            </BaseButton>
-            <BaseButton
-              size="sm"
-              variant="secondary"
-              @click="editProduct(product)"
-            >
-              Editar
-            </BaseButton>
-            <BaseButton
-              size="sm"
-              variant="danger"
+            <button class="icon-btn" aria-label="Ajustar estoque" title="Ajustar estoque" @click="openStock(product)">
+              <Icon icon="mdi:package-variant-closed-plus" />
+            </button>
+            <button class="icon-btn" aria-label="Editar produto" title="Editar" @click="editProduct(product)">
+              <Icon icon="mdi:pencil-outline" />
+            </button>
+            <button
+              class="icon-btn danger"
+              aria-label="Excluir produto"
+              title="Excluir"
+              :disabled="isDeleting"
               @click="deleteProductConfirm(product.id)"
-              :loading="isDeleting"
             >
-              Excluir
-            </BaseButton>
+              <Icon icon="mdi:trash-can-outline" />
+            </button>
           </div>
-        </div>
-
-        <div class="product-details">
-          <div class="product-price">
-            <span class="price-label">Preço:</span>
-            <span class="price-value">{{ formatCurrency(product.price) }}</span>
-          </div>
-          
-          <div class="product-stock" v-if="getStockQuantity(product) !== undefined">
-            <span class="stock-label">Estoque:</span>
-            <span 
-              class="stock-value"
-              :class="getStockClasses(product)"
-            >
-              <template v-if="product.stock?.allow_backorder">
-                <span v-if="getStockQuantity(product) !== undefined && getStockQuantity(product)! <= 0" class="backorder-indicator">
-                  ⚠️ Venda sem estoque ({{ getStockQuantity(product) }})
-                </span>
-                <span v-else-if="getStockQuantity(product) !== undefined">
-                  {{ getStockQuantity(product) }} unidades
-                </span>
-              </template>
-              <span v-else-if="getStockQuantity(product) !== undefined">
-                {{ getStockQuantity(product) }} unidades
-              </span>
-            </span>
-          </div>
-        </div>
-
-        <div v-if="product.description" class="product-description">
-          {{ product.description }}
-        </div>
-
-        <div class="product-footer">
-          <div class="product-meta">
-            <span class="created-date" v-if="product.created_at">
-              Criado em {{ formatDate(product.created_at) }}
-            </span>
-          </div>
-        </div>
-      </BaseCard>
+        </footer>
+      </article>
       </div>
       <div ref="loadMoreSentinel" class="load-more-sentinel" aria-hidden="true" />
       <div v-if="isLoadingMore" class="load-more-hint">Carregando mais produtos...</div>
@@ -256,6 +239,12 @@
         </BaseButton>
       </div>
     </BaseCard>
+
+    <StockAdjustModal
+      v-model:show="showStockModal"
+      :product="stockProduct"
+      @success="refresh"
+    />
 
     <!-- Product Modal -->
     <ProductModal
@@ -275,6 +264,10 @@ import BaseButton from '@/components/Base/Button.vue'
 import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
+import PageHeader from '@/components/Base/PageHeader.vue'
+import Badge from '@/components/Base/Badge.vue'
+import { Icon } from '@iconify/vue'
+import StockAdjustModal from '@/components/Modals/StockAdjustModal.vue'
 import ProductModal from '@/components/Modals/ProductModal.vue'
 import type { Product } from '@/types/api'
 
@@ -323,6 +316,8 @@ const { currency, date } = useFormatter()
 const viewMode = ref<'grid' | 'list'>('grid')
 const showProductModal = ref(false)
 const selectedProductId = ref<number | null>(null)
+const showStockModal = ref(false)
+const stockProduct = ref<Product | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadMoreObserver: IntersectionObserver | null = null
 
@@ -363,22 +358,14 @@ const getStockQuantity = (product: Product): number | undefined => {
   return product.stock_quantity
 }
 
-const getStockClasses = (product: Product): string[] => {
-  const quantity = getStockQuantity(product)
-  const classes: string[] = []
-  
-  if (quantity === undefined) return classes
-  
-  // Se allow_backorder é true e estoque é negativo/zero, mostra badge especial
+const stockBadge = (product: Product): { variant: 'neutral' | 'warning' | 'danger' | 'info'; label: string } => {
+  const quantity = getStockQuantity(product) ?? 0
   if (product.stock?.allow_backorder && quantity <= 0) {
-    classes.push('backorder')
-  } else if (quantity === 0) {
-    classes.push('out-of-stock')
-  } else if (quantity <= 5) {
-    classes.push('low-stock')
+    return { variant: 'info', label: `Venda sem estoque (${quantity})` }
   }
-  
-  return classes
+  if (quantity === 0) return { variant: 'danger', label: 'Sem estoque' }
+  if (quantity <= 5) return { variant: 'warning', label: `${quantity} un. · baixo` }
+  return { variant: 'neutral', label: `${quantity} unidades` }
 }
 
 const formatDate = (dateString: string) => {
@@ -438,6 +425,11 @@ const editProduct = (product: Product) => {
   showProductModal.value = true
 }
 
+const openStock = (product: Product) => {
+  stockProduct.value = product
+  showStockModal.value = true
+}
+
 const handleProductSuccess = () => {
   showProductModal.value = false
   selectedProductId.value = null
@@ -494,23 +486,6 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.products {
-  padding: var(--spacing-6);
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.products-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-6);
-  
-  h2 {
-    margin: 0;
-    color: var(--primary-dark);
-  }
-}
 
 .filters-card {
   margin-bottom: var(--spacing-6);
@@ -660,7 +635,7 @@ onUnmounted(() => {
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--spacing-4);
 
   &.list-view {
@@ -669,141 +644,221 @@ onUnmounted(() => {
 }
 
 .product-card {
-  transition: all var(--transition-normal);
-  
-  &:deep(.card-body),
-  &:deep(.base-card__body) {
-    padding: var(--spacing-3);
-  }
-  
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-  }
-  
-  &.inactive {
-    opacity: 0.6;
-    border-left: 4px solid var(--gray-400);
-  }
-}
-
-.product-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--spacing-2);
-  gap: var(--spacing-2);
-}
-
-.product-info {
-  flex: 1;
-  min-width: 0;
-  
-  .product-name {
-    margin: 0 0 2px 0;
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--primary-dark);
-    line-height: 1.25;
-  }
-  
-  .product-sku {
-    margin: 0 0 2px 0;
-    font-size: var(--font-size-xs);
-    color: var(--gray-500);
-  }
-
-  .product-category {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--gray-600);
-  }
-}
-
-.product-actions {
-  display: flex;
-  gap: var(--spacing-1);
-  flex-wrap: wrap;
-  
-  :deep(.btn) {
-    padding: var(--spacing-1) var(--spacing-2);
-    font-size: var(--font-size-xs);
-  }
-}
-
-.product-details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: var(--spacing-2);
-  margin-bottom: var(--spacing-2);
-}
-
-.product-price,
-.product-stock {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
-  
-  .price-label,
-  .stock-label {
-    font-size: var(--font-size-xs);
-    color: var(--gray-500);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .price-value {
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--primary-dark);
-  }
-  
-  .stock-value {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    
-    &.low-stock {
-      color: var(--warning);
-    }
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 
-    &.out-of-stock {
-      color: var(--danger);
-    }
-
-    &.backorder {
-      color: var(--info, #17a2b8);
-    }
-
-    .backorder-indicator {
-      display: inline-block;
-      padding: 2px 6px;
-      background: rgba(23, 162, 184, 0.1);
-      color: var(--info, #17a2b8);
-      border-radius: 4px;
-      font-size: var(--font-size-xs);
-    }
+  &:hover {
+    border-color: var(--gray-400);
+    box-shadow: var(--shadow-md);
   }
+
+  &.inactive .product-name,
+  &.inactive .metric-value {
+    color: var(--text-muted);
+  }
+}
+
+.product-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 22px;
+}
+
+.product-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.product-sku {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
 }
 
 .product-description {
-  font-size: var(--font-size-xs);
-  color: var(--gray-600);
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
   line-height: 1.4;
-  margin-bottom: var(--spacing-2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.product-footer {
-  border-top: 1px solid var(--gray-200);
-  padding-top: var(--spacing-2);
-  
-  .product-meta {
-    font-size: var(--font-size-xs);
-    color: var(--gray-500);
+.product-metrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+
+  &:last-child:not(:first-child) {
+    align-items: flex-end;
   }
+}
+
+.metric-label {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.product-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding-top: var(--spacing-3);
+  border-top: 1px solid var(--border);
+}
+
+.created-date {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+}
+
+.product-actions {
+  display: flex;
+  gap: var(--spacing-1);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--surface-muted);
+    color: var(--text);
+  }
+
+  &.danger:hover:not(:disabled) {
+    background: var(--danger-soft);
+    color: var(--danger-strong);
+    border-color: var(--danger-soft);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  &:has(input:disabled) {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}
+
+.switch-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--gray-400);
+  transition: background var(--transition-fast);
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform var(--transition-fast);
+  }
+}
+
+.switch input:checked + .switch-track {
+  background: var(--success);
+
+  &::after {
+    transform: translateX(14px);
+  }
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+
+.switch-text {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+// List view: one compact row per product
+.list-view .product-card {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto auto auto;
+  grid-template-areas: 'main top metrics footer';
+  align-items: center;
+  gap: var(--spacing-5);
+
+  .product-top { grid-area: top; flex-direction: column; align-items: flex-start; gap: var(--spacing-1); }
+  .product-main { grid-area: main; }
+  .product-metrics { grid-area: metrics; border: 0; padding: 0; gap: var(--spacing-5); }
+  .product-footer { grid-area: footer; border: 0; padding: 0; }
+  .product-description { -webkit-line-clamp: 1; }
 }
 
 .empty-state {
@@ -830,16 +885,6 @@ onUnmounted(() => {
 
 // Mobile optimizations
 @media (max-width: 768px) {
-  .products {
-    padding: var(--spacing-4);
-  }
-  
-  .products-header {
-    flex-direction: column;
-    gap: var(--spacing-4);
-    align-items: stretch;
-  }
-  
   .filters-grid {
     grid-template-columns: 1fr;
     gap: var(--spacing-3);
@@ -875,22 +920,15 @@ onUnmounted(() => {
     gap: var(--spacing-4);
   }
   
-  .product-header {
+  .list-view .product-card {
+    display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: var(--spacing-3);
-  }
-  
-  .product-actions {
-    width: 100%;
-    justify-content: stretch;
-    
-    > * {
-      flex: 1;
-    }
-  }
-  
-  .product-details {
-    grid-template-columns: 1fr;
+
+    .product-top { flex-direction: row; align-items: center; }
+    .product-metrics { padding: var(--spacing-3) 0; border-top: 1px solid var(--border); }
+    .product-footer { padding-top: var(--spacing-3); border-top: 1px solid var(--border); }
   }
 }
 
@@ -923,13 +961,4 @@ onUnmounted(() => {
   font-size: var(--font-size-sm);
 }
 
-@media (max-width: 480px) {
-  .products {
-    padding: var(--spacing-2);
-  }
-  
-  .product-actions {
-    flex-direction: column;
-  }
-}
 </style>

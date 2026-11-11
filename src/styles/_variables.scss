@@ -6,28 +6,43 @@
   --primary-light: #4a5bb8;
   --primary-lighter: #7a8bc7;
   --accent-light: #a8b5d6;
-  --background-light: #f0f2ff;
-  
-  /* Additional Colors */
+  --background-light: #f6f7f9;
+
+  /* Additional Colors (neutral slate scale) */
   --white: #ffffff;
-  --gray-100: #f8f9fa;
-  --gray-200: #e9ecef;
-  --gray-300: #dee2e6;
-  --gray-400: #ced4da;
-  --gray-500: #adb5bd;
-  --gray-600: #6c757d;
-  --gray-700: #495057;
-  --gray-800: #343a40;
-  --gray-900: #212529;
-  
+  --gray-100: #f8fafc;
+  --gray-200: #eef1f5;
+  --gray-300: #e2e8f0;
+  --gray-400: #cbd5e1;
+  --gray-500: #94a3b8;
+  --gray-600: #64748b;
+  --gray-700: #475569;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+
   /* Status Colors */
-  --success: #28a745;
-  --warning: #ffc107;
-  --danger: #dc3545;
-  --info: #17a2b8;
-  
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #0284c7;
+
+  /* Semantic tokens (prefer these in new code) */
+  --surface: var(--white);
+  --surface-muted: var(--gray-100);
+  --border: var(--gray-300);
+  --text: var(--gray-800);
+  --text-muted: var(--gray-600);
+  --success-soft: #dcfce7;
+  --success-strong: #166534;
+  --warning-soft: #fef3c7;
+  --warning-strong: #92400e;
+  --danger-soft: #fee2e2;
+  --danger-strong: #991b1b;
+  --info-soft: #e0f2fe;
+  --info-strong: #075985;
+
   /* Typography */
-  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -68,15 +83,23 @@
 
 /* Dark Theme Variables */
 [data-theme="dark"] {
-  --background-light: #1a1a1a;
-  --white: #2d2d2d;
-  --gray-100: #343a40;
-  --gray-200: #495057;
-  --gray-300: #6c757d;
-  --gray-400: #adb5bd;
-  --gray-500: #ced4da;
-  --gray-600: #dee2e6;
-  --gray-700: #e9ecef;
-  --gray-800: #f8f9fa;
+  --background-light: #0b1120;
+  --white: #162032;
+  --gray-100: #1e293b;
+  --gray-200: #273449;
+  --gray-300: #334155;
+  --gray-400: #475569;
+  --gray-500: #94a3b8;
+  --gray-600: #cbd5e1;
+  --gray-700: #e2e8f0;
+  --gray-800: #f1f5f9;
   --gray-900: #ffffff;
+  --success-soft: #14532d;
+  --success-strong: #bbf7d0;
+  --warning-soft: #78350f;
+  --warning-strong: #fde68a;
+  --danger-soft: #7f1d1d;
+  --danger-strong: #fecaca;
+  --info-soft: #0c4a6e;
+  --info-strong: #bae6fd;
 }

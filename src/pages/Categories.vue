@@ -1,79 +1,53 @@
 <template>
   <div class="categories">
-    <!-- Header -->
-    <div class="page-header">
-      <div class="header-content">
-        <h1 class="page-title">Categorias</h1>
-        <p class="page-description">Gerencie as categorias dos seus produtos</p>
-      </div>
-      <BaseButton 
-        variant="primary" 
-        @click="createNewCategory"
-        :loading="isCreating"
-      >
-        <span class="btn-icon">📁</span>
-        Nova Categoria
-      </BaseButton>
-    </div>
-
-    <!-- Loading State -->
-    <BaseLoading 
-      v-if="isLoading" 
-      :show="isLoading"
-      variant="overlay"
-    />
-
-    <!-- Error State -->
-    <BaseCard v-if="error" class="error-card">
-      <div class="error-content">
-        <span class="error-icon">⚠️</span>
-        <div>
-          <h3>Erro ao carregar categorias</h3>
-          <p>{{ error }}</p>
-          <BaseButton @click="loadCategories" variant="secondary">
-            Tentar novamente
-          </BaseButton>
-        </div>
-      </div>
-    </BaseCard>
-
-    <!-- Categories Grid -->
-    <div v-else class="categories-grid">
-      <!-- Empty State -->
-      <div v-if="!categories || categories.length === 0" class="empty-state">
-        <div class="empty-icon">📁</div>
-        <h3>Nenhuma categoria encontrada</h3>
-        <p>Comece criando sua primeira categoria clicando no botão "Nova Categoria"</p>
-        <BaseButton 
-          variant="primary" 
-          @click="createNewCategory"
-          :loading="isCreating"
-        >
-          <span class="btn-icon">📁</span>
+    <PageHeader title="Categorias" description="Gerencie as categorias dos seus produtos">
+      <template #actions>
+        <BaseButton variant="primary" @click="createNewCategory" :loading="isCreating">
           Nova Categoria
         </BaseButton>
-      </div>
+      </template>
+    </PageHeader>
 
-      <!-- Categories List -->
-      <BaseCard
-        v-else
-        v-for="category in categories"
-        :key="category.id"
-        class="category-card"
-        :class="{ 'inactive': !category.is_active }"
+    <BaseLoading v-if="isLoading" :show="isLoading" variant="overlay" />
+
+    <EmptyState
+      v-if="error"
+      icon="mdi:alert-circle-outline"
+      title="Erro ao carregar categorias"
+      :description="error"
+    >
+      <BaseButton @click="loadCategories" variant="secondary">Tentar novamente</BaseButton>
+    </EmptyState>
+
+    <template v-else>
+      <EmptyState
+        v-if="!categories || categories.length === 0"
+        icon="mdi:shape-outline"
+        title="Nenhuma categoria encontrada"
+        description='Comece criando sua primeira categoria clicando em "Nova Categoria"'
       >
-        <div class="category-header" v-if="category && category.id">
+        <BaseButton variant="primary" @click="createNewCategory" :loading="isCreating">
+          Nova Categoria
+        </BaseButton>
+      </EmptyState>
+
+      <ul v-else class="category-list">
+        <li
+          v-for="category in categories"
+          :key="category.id"
+          class="category-row"
+          :class="{ inactive: !category.is_active }"
+        >
           <div class="category-info">
-            <h3 class="category-name">{{ category.name }}</h3>
-            <p class="category-description" v-if="category.description">
+            <div class="category-title">
+              <h3 class="category-name">{{ category.name }}</h3>
+              <Badge :variant="category.is_active ? 'success' : 'neutral'">
+                {{ category.is_active ? 'Ativa' : 'Inativa' }}
+              </Badge>
+            </div>
+            <p v-if="category.description" class="category-description">
               {{ category.description }}
             </p>
-            <div class="category-meta">
-              <span class="category-id">ID: {{ category.id }}</span>
-              <span class="category-status" :class="category.is_active ? 'active' : 'inactive'">
-                {{ category.is_active ? 'Ativa' : 'Inativa' }}
-              </span>
-            </div>
           </div>
           <div class="category-actions">
             <BaseButton
@@ -84,14 +58,10 @@
             >
               {{ category.is_active ? 'Ativa' : 'Inativa' }}
             </BaseButton>
-            <BaseButton
-              size="sm"
-              variant="primary"
-              @click="editCategory(category)"
-            >
+            <BaseButton size="sm" variant="primary" @click="editCategory(category)">
               Editar
             </BaseButton>
-            <BaseButton 
+            <BaseButton
               v-if="isAdmin"
               size="sm"
               variant="danger"
@@ -101,11 +71,10 @@
               Excluir
             </BaseButton>
           </div>
-        </div>
-      </BaseCard>
-    </div>
+        </li>
+      </ul>
+    </template>
 
-    <!-- Category Modal -->
     <CategoryModal
       :show="showCategoryModal"
       :category="selectedCategory"
@@ -117,9 +86,11 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import BaseCard from '@/components/Base/Card.vue'
 import BaseButton from '@/components/Base/Button.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
+import PageHeader from '@/components/Base/PageHeader.vue'
+import EmptyState from '@/components/Base/EmptyState.vue'
+import Badge from '@/components/Base/Badge.vue'
 import CategoryModal from '../components/Modals/CategoryModal.vue'
 import { useCategories } from '@/composables/useCategories'
 import type { Category } from '@/types/api'
@@ -191,221 +162,68 @@ const toggleCategoryActive = async (id: number) => {
 </script>
 
 <style lang="scss" scoped>
-.categories {
-  padding: var(--spacing-6);
-  max-width: 1200px;
-  margin: 0 auto;
+.category-list {
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
 }
 
-.page-header {
+.category-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--spacing-8);
-  gap: var(--spacing-4);
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-.header-content {
-  flex: 1;
-}
-
-.page-title {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-color-dark);
-  margin: 0 0 var(--spacing-2) 0;
-}
-
-.page-description {
-  color: var(--gray-600);
-  margin: 0;
-  font-size: var(--font-size-sm);
-}
-
-.error-card {
-  margin-bottom: var(--spacing-6);
-}
-
-.error-content {
-  display: flex;
   align-items: center;
   gap: var(--spacing-4);
-  padding: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
 
-  .error-icon {
-    font-size: var(--font-size-2xl);
-    color: var(--danger);
+  & + & {
+    border-top: 1px solid var(--border);
   }
 
-  h3 {
-    margin: 0 0 var(--spacing-2) 0;
-    color: var(--danger);
-  }
-
-  p {
-    margin: 0 0 var(--spacing-3) 0;
-    color: var(--gray-600);
-  }
-}
-
-.categories-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: var(--spacing-6);
-}
-
-.category-card {
-  transition: all var(--transition-normal);
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-  }
-
-  &.inactive {
-    opacity: 0.6;
-    background: var(--gray-50);
-  }
-}
-
-.category-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-4);
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: stretch;
+  &.inactive .category-name {
+    color: var(--text-muted);
   }
 }
 
 .category-info {
   flex: 1;
+  min-width: 0;
 }
 
-.category-name {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-color-dark);
-  margin: 0 0 var(--spacing-2) 0;
-}
-
-.category-description {
-  color: var(--gray-600);
-  margin: 0 0 var(--spacing-3) 0;
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-.category-meta {
+.category-title {
   display: flex;
-  gap: var(--spacing-4);
   align-items: center;
+  gap: var(--spacing-2);
   flex-wrap: wrap;
 }
 
-.category-id {
-  font-size: var(--font-size-xs);
-  color: var(--gray-500);
-  background: var(--gray-100);
-  padding: var(--spacing-1) var(--spacing-2);
-  border-radius: var(--radius-sm);
+.category-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text);
 }
 
-.category-status {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  padding: var(--spacing-1) var(--spacing-2);
-  border-radius: var(--radius-sm);
-
-  &.active {
-    background: var(--success-light);
-    color: var(--success-dark);
-  }
-
-  &.inactive {
-    background: var(--gray-200);
-    color: var(--gray-600);
-  }
+.category-description {
+  margin-top: var(--spacing-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
 }
 
 .category-actions {
   display: flex;
   gap: var(--spacing-2);
   flex-shrink: 0;
-
-  @media (max-width: 768px) {
-    justify-content: stretch;
-    
-    > * {
-      flex: 1;
-    }
-  }
 }
 
-// Empty State Styles
-.empty-state {
-  text-align: center;
-  padding: var(--spacing-8) var(--spacing-4);
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--gray-200);
-  grid-column: 1 / -1;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: var(--spacing-4);
-  opacity: 0.6;
-}
-
-.empty-state h3 {
-  color: var(--gray-700);
-  margin-bottom: var(--spacing-2);
-  font-size: var(--font-size-lg);
-}
-
-.empty-state p {
-  color: var(--gray-500);
-  margin-bottom: var(--spacing-6);
-  font-size: var(--font-size-sm);
-}
-
-@media (max-width: 768px) {
-  .categories {
-    padding: var(--spacing-4);
-  }
-  
-  .categories-grid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-4);
-  }
-  
-  .category-header {
+@media (max-width: 640px) {
+  .category-row {
     flex-direction: column;
-    gap: var(--spacing-3);
+    align-items: stretch;
   }
-  
-  .category-actions {
-    width: 100%;
-    justify-content: stretch;
-    
-    > * {
-      flex: 1;
-    }
-  }
-}
 
-@media (max-width: 480px) {
-  .categories {
-    padding: var(--spacing-2);
+  .category-actions > * {
+    flex: 1;
   }
 }
 </style>

@@ -10,7 +10,8 @@ body {
   font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--gray-800);
-  background: linear-gradient(135deg, var(--background-light) 0%, var(--accent-light) 100%);
+  background: var(--background-light);
+  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   transition: all var(--transition-normal);
 }

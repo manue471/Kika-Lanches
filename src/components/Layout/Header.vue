@@ -1,95 +1,102 @@
 <template>
-  <header class="header">
-    <div class="header-content">
-      <h1 class="logo">
-        <img src="/icons/login-logo.png" alt="Kika Lanches" class="logo-img">
-        Kika Lanches</h1>
-      
-      <!-- Desktop Navigation -->
-      <nav class="nav desktop-nav">
-        <button
-          v-for="item in navigationItems"
-          :key="item.name"
-          :class="['nav-btn', { active: currentRoute === item.route }]"
-          @click="$emit('navigate', item.route)"
-        >
-          {{ item.name }}
-        </button>
-        <button
-          class="nav-btn logout-btn"
-          @click="handleLogout"
-          title="Sair"
-        >
-          <Icon icon="mdi:logout" class="logout-icon" />
-        </button>
-      </nav>
-      
-      <!-- Mobile Menu Button -->
-      <button 
-        class="mobile-menu-btn" 
-        @click="toggleMobileMenu"
-        :class="{ active: isMobileMenuOpen }"
+  <!-- Desktop sidebar -->
+  <aside class="sidebar" aria-label="Navegação principal">
+    <div class="sidebar-brand">
+      <img src="/icons/login-logo.png" alt="" class="brand-img">
+      <span class="brand-name">Kika Lanches</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button
+        v-for="item in navigationItems"
+        :key="item.route"
+        :class="['sidebar-link', { active: currentRoute === item.route }]"
+        :aria-current="currentRoute === item.route ? 'page' : undefined"
+        @click="$emit('navigate', item.route)"
       >
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
+        <Icon :icon="item.icon" class="link-icon" />
+        <span>{{ item.name }}</span>
       </button>
-  
-    </div>
-    
-    <!-- Mobile Navigation Menu -->
-    <div 
-      v-if="isMobileMenuOpen"
-      class="mobile-menu" 
-      :class="{ open: isMobileMenuOpen }"
-      @click="closeMobileMenu"
-    >
-      <div class="mobile-menu-content" @click.stop>
-        <div class="mobile-menu-header">
-          <h2>Menu</h2>
-          <button class="close-btn" @click="closeMobileMenu">
-            ✕
-          </button>
-        </div>
-        
-        <nav class="mobile-nav">
-          <button
-            v-for="item in navigationItems"
-            :key="item.name"
-            :class="['mobile-nav-btn', { active: currentRoute === item.route }]"
-            @click="navigateAndClose(item.route)"
-          >
-            <span class="nav-icon">{{ getNavIcon(item.route) }}</span>
-            <span class="nav-text">{{ item.name }}</span>
-          </button>
-        </nav>
-        
-        <div class="mobile-menu-footer">
-          <button class="mobile-logout-btn" @click="handleLogout">
-            <Icon icon="mdi:logout" class="logout-icon" />
-            <span>Sair</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    </nav>
+
+    <button class="sidebar-link logout" @click="handleLogout">
+      <Icon icon="mdi:logout" class="link-icon" />
+      <span>Sair</span>
+    </button>
+  </aside>
+
+  <!-- Mobile top bar -->
+  <header class="topbar">
+    <img src="/icons/login-logo.png" alt="" class="brand-img">
+    <span class="brand-name">Kika Lanches</span>
   </header>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="tabbar" aria-label="Navegação principal">
+    <button
+      v-for="item in primaryItems"
+      :key="item.route"
+      :class="['tab', { active: currentRoute === item.route }]"
+      :aria-current="currentRoute === item.route ? 'page' : undefined"
+      @click="navigateAndClose(item.route)"
+    >
+      <Icon :icon="item.icon" class="tab-icon" />
+      <span>{{ item.short || item.name }}</span>
+    </button>
+    <button
+      v-if="overflowItems.length"
+      :class="['tab', { active: isMoreOpen || overflowActive }]"
+      aria-haspopup="menu"
+      :aria-expanded="isMoreOpen"
+      @click="isMoreOpen = !isMoreOpen"
+    >
+      <Icon icon="mdi:dots-horizontal" class="tab-icon" />
+      <span>Mais</span>
+    </button>
+    <button v-else class="tab" @click="handleLogout">
+      <Icon icon="mdi:logout" class="tab-icon" />
+      <span>Sair</span>
+    </button>
+  </nav>
+
+  <!-- Mobile "Mais" sheet -->
+  <div v-if="isMoreOpen" class="more-backdrop" @click="isMoreOpen = false">
+    <div class="more-sheet" role="menu" @click.stop>
+      <button
+        v-for="item in overflowItems"
+        :key="item.route"
+        role="menuitem"
+        :class="['more-item', { active: currentRoute === item.route }]"
+        @click="navigateAndClose(item.route)"
+      >
+        <Icon :icon="item.icon" class="link-icon" />
+        <span>{{ item.name }}</span>
+      </button>
+      <button class="more-item logout" role="menuitem" @click="handleLogout">
+        <Icon icon="mdi:logout" class="link-icon" />
+        <span>Sair</span>
+      </button>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useAuth } from '@/composables/useAuth'
 
 interface NavigationItem {
   name: string
+  short?: string
   route: string
+  icon: string
 }
 
 interface Props {
   currentRoute: string
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   navigate: [route: string]
@@ -97,461 +104,242 @@ const emit = defineEmits<{
 
 const { logout } = useAuth()
 
-// Mobile menu state
-const isMobileMenuOpen = ref(false)
+const isMoreOpen = ref(false)
 
-// Get user role
-const getUserRole = (): string | null => {
-  return localStorage.getItem('user_role')
-}
-
-const userRole = getUserRole()
+const userRole = localStorage.getItem('user_role')
 const isAdmin = userRole === 'admin' || userRole === 'tenant_owner'
 
 const navigationItems: NavigationItem[] = [
-  { name: 'Dashboard', route: 'dashboard' },
-  { name: 'Vendas', route: 'sales' },
-  { name: 'Clientes', route: 'customers' },
+  { name: 'Dashboard', short: 'Início', route: 'dashboard', icon: 'mdi:view-dashboard-outline' },
+  { name: 'Vendas', route: 'sales', icon: 'mdi:cart-outline' },
+  { name: 'Clientes', route: 'customers', icon: 'mdi:account-group-outline' },
+  { name: 'Relatórios', route: 'reports', icon: 'mdi:chart-box-outline' },
   // Admin only items
   ...(isAdmin ? [
-    { name: 'Produtos', route: 'products' },
-    { name: 'Categorias', route: 'categories' },
-    { name: 'Relatórios de Clientes', route: 'customer-reports' },
-    { name: 'Usuários', route: 'users' }
+    { name: 'Produtos', route: 'products', icon: 'mdi:package-variant-closed' },
+    { name: 'Categorias', route: 'categories', icon: 'mdi:shape-outline' },
+    { name: 'Relatórios de Clientes', route: 'customer-reports', icon: 'mdi:file-chart-outline' },
+    { name: 'Usuários', route: 'users', icon: 'mdi:account-cog-outline' }
   ] : [])
 ]
 
-// Mobile menu methods
-const toggleMobileMenu = () => {
-  isMobileMenuOpen.value = !isMobileMenuOpen.value
-}
-
-const closeMobileMenu = () => {
-  isMobileMenuOpen.value = false
-}
+// Bottom bar fits 4 destinations; the rest go under "Mais"
+const primaryItems = computed(() =>
+  navigationItems.length > 5 ? navigationItems.slice(0, 4) : navigationItems
+)
+const overflowItems = computed(() =>
+  navigationItems.length > 5 ? navigationItems.slice(4) : []
+)
+const overflowActive = computed(() =>
+  overflowItems.value.some(item => item.route === props.currentRoute)
+)
 
 const navigateAndClose = (route: string) => {
-  try {
-    emit('navigate', route)
-    closeMobileMenu()
-  } catch (error) {
-    console.error('Error navigating:', error)
-  }
+  emit('navigate', route)
+  isMoreOpen.value = false
 }
 
-const getNavIcon = (route: string) => {
-  const icons: Record<string, string> = {
-    dashboard: '📊',
-    sales: '🛒',
-    products: '📦',
-    categories: '📁',
-    customers: '👥',
-    reports: '📈',
-    users: '👤'
-  }
-  return icons[route] || '📄'
-}
-
-// Keyboard and click outside handling
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && isMobileMenuOpen.value) {
-    closeMobileMenu()
-  }
+  if (event.key === 'Escape') isMoreOpen.value = false
 }
 
 const handleLogout = async () => {
   try {
     await logout()
-    closeMobileMenu()
+    isMoreOpen.value = false
   } catch (error) {
     console.error('Error during logout:', error)
   }
 }
 
-onMounted(() => {
-  try {
-    document.addEventListener('keydown', handleKeydown)
-  } catch (error) {
-    console.error('Error adding event listener:', error)
-  }
-})
-
-onUnmounted(() => {
-  try {
-    document.removeEventListener('keydown', handleKeydown)
-  } catch (error) {
-    // Ignore errors during cleanup
-    console.warn('Error removing event listener:', error)
-  }
-})
+onMounted(() => document.addEventListener('keydown', handleKeydown))
+onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 </script>
 
 <style lang="scss" scoped>
-.header {
-  background: #141d85;
-  color: var(--white);
-  padding: var(--spacing-4) 0;
-  box-shadow: var(--shadow-lg);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
+$sidebar-width: 240px;
+$tabbar-height: 64px;
 
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 var(--spacing-4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-4);
-}
-
-.logo {
-  font-size: var(--font-size-2xl);
-  font-weight: bold;
-  color: var(--white);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-  margin: 0;
-  flex-shrink: 0;
-}
-
-// Desktop Navigation
-.desktop-nav {
-  display: flex;
-  gap: var(--spacing-2);
-  flex-wrap: wrap;
-}
-
-.nav-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--white);
-  padding: var(--spacing-2) var(--spacing-4);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-1);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-1px);
-  }
-
-  &.active {
-    background: var(--primary-light);
-    color: var(--primary-dark);
-    border-color: var(--primary-light);
-  }
-  
-  &.logout-btn {
-    background: rgba(255, 87, 87, 0.1);
-    border-color: rgba(255, 87, 87, 0.3);
-    margin-left: auto;
-    padding: var(--spacing-2);
-    min-width: auto;
-    
-    &:hover {
-      background: rgba(255, 87, 87, 0.2);
-      border-color: rgba(255, 87, 87, 0.5);
-    }
-    
-    .logout-icon {
-      width: 20px;
-      height: 20px;
-    }
-  }
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-
-
-.logout-btn {
-  background: rgba(255, 87, 87, 0.1);
-  border: 1px solid rgba(255, 87, 87, 0.3);
-  color: var(--white);
-  padding: var(--spacing-2);
+.brand-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
   border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+}
+
+.brand-name {
+  font-weight: 600;
   font-size: var(--font-size-lg);
-  flex-shrink: 0;
-
-  &:hover {
-    background: rgba(255, 87, 87, 0.2);
-    border-color: rgba(255, 87, 87, 0.5);
-  }
+  color: var(--text);
 }
 
-// Mobile Menu Button
-.mobile-menu-btn {
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  padding: 0;
-  gap: 4px;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  &.active {
-    background: var(--primary-light);
-    
-    .hamburger-line {
-      &:nth-child(1) {
-        transform: rotate(45deg) translate(5px, 5px);
-      }
-      
-      &:nth-child(2) {
-        opacity: 0;
-      }
-      
-      &:nth-child(3) {
-        transform: rotate(-45deg) translate(7px, -6px);
-      }
-    }
-  }
-}
-
-.hamburger-line {
-  width: 20px;
-  height: 2px;
-  background: var(--white);
-  transition: all var(--transition-fast);
-  border-radius: 1px;
-}
-
-// Mobile Menu
-.mobile-menu {
+// ---------- Desktop sidebar ----------
+.sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 999;
-  opacity: 0;
-  visibility: hidden;
-  transition: all var(--transition-normal);
-
-  &.open {
-    opacity: 1;
-    visibility: visible;
-  }
+  inset: 0 auto 0 0;
+  width: $sidebar-width;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4) var(--spacing-3);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  z-index: 100;
 }
 
-.mobile-menu-content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: var(--white);
-  color: var(--gray-800);
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-100%);
-  transition: transform var(--transition-normal);
-  max-height: 100vh;
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3) var(--spacing-4);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  flex: 1;
   overflow-y: auto;
 }
 
-.mobile-menu.open .mobile-menu-content {
-  transform: translateY(0);
-}
-
-.mobile-menu-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-6);
-  border-bottom: 1px solid var(--gray-200);
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
-  color: var(--white);
-
-  h2 {
-    margin: 0;
-    font-size: var(--font-size-xl);
-    font-weight: bold;
-  }
-}
-
-.logo-img {
-  width: 40px;
-  height: 40px;
-}
-
-.close-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--white);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-lg);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
-  }
-}
-
-.mobile-nav {
-  padding: var(--spacing-4);
-}
-
-.mobile-nav-btn {
+.sidebar-link {
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
   width: 100%;
-  padding: var(--spacing-4);
-  background: transparent;
-  border: none;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 0;
   border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
   text-align: left;
-  margin-bottom: var(--spacing-2);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
 
   &:hover {
-    background: var(--gray-100);
-    transform: translateX(4px);
+    background: var(--surface-muted);
+    color: var(--text);
   }
 
   &.active {
-    background: var(--primary-light);
-    color: var(--primary-dark);
-    font-weight: 600;
+    background: var(--primary);
+    color: #fff;
+  }
+
+  &.logout:hover {
+    background: var(--danger-soft);
+    color: var(--danger-strong);
   }
 }
 
-.nav-icon {
-  font-size: var(--font-size-xl);
-  width: 24px;
-  text-align: center;
+.link-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
-.nav-text {
-  font-size: var(--font-size-base);
-  font-weight: 500;
+// ---------- Mobile chrome (hidden on desktop) ----------
+.topbar,
+.tabbar,
+.more-backdrop {
+  display: none;
 }
 
-.mobile-menu-footer {
-  padding: var(--spacing-4);
-  border-top: 1px solid var(--gray-200);
-  background: var(--gray-50);
-}
-
-
-.mobile-logout-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-3);
-  width: 100%;
-  padding: var(--spacing-3);
-  background: var(--white);
-  border: 1px solid rgba(255, 87, 87, 0.3);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: var(--font-size-sm);
-  color: #dc2626;
-  margin-top: var(--spacing-2);
-
-  &:hover {
-    background: rgba(255, 87, 87, 0.05);
-    border-color: rgba(255, 87, 87, 0.5);
-  }
-
-  .logout-icon {
-    width: 20px;
-    height: 20px;
-  }
-}
-
-// Responsive Design
-@media (max-width: 768px) {
-  .header-content {
-    padding: 0 var(--spacing-3);
-  }
-
-  .logo {
-    font-size: var(--font-size-xl);
-  }
-
-  .desktop-nav {
+@media (max-width: 900px) {
+  .sidebar {
     display: none;
   }
 
-  .mobile-menu-btn {
+  .topbar {
     display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    position: sticky;
+    top: 0;
+    height: 52px;
+    padding: 0 var(--spacing-4);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
   }
 
-}
-
-@media (max-width: 480px) {
-  .header-content {
-    padding: 0 var(--spacing-2);
+  .tabbar {
+    display: flex;
+    position: fixed;
+    inset: auto 0 0 0;
+    height: $tabbar-height;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
   }
 
-  .logo {
-    font-size: var(--font-size-lg);
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    cursor: pointer;
+
+    &.active {
+      color: var(--primary);
+    }
   }
 
-  .mobile-menu-btn {
-    width: 36px;
-    height: 36px;
+  .tab-icon {
+    font-size: 1.5rem;
   }
 
-  .hamburger-line {
-    width: 18px;
+  .more-backdrop {
+    display: flex;
+    align-items: flex-end;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 200;
   }
 
-  .mobile-menu-header {
-    padding: var(--spacing-4);
+  .more-sheet {
+    width: 100%;
+    padding: var(--spacing-3) var(--spacing-3) calc(#{$tabbar-height} + var(--spacing-3));
+    background: var(--surface);
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
   }
 
-  .mobile-nav {
-    padding: var(--spacing-3);
-  }
+  .more-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    min-height: 48px;
+    padding: 0 var(--spacing-3);
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
 
-  .mobile-nav-btn {
-    padding: var(--spacing-3);
-  }
+    &.active {
+      background: var(--surface-muted);
+      color: var(--primary);
+    }
 
-  .mobile-menu-footer {
-    padding: var(--spacing-3);
-  }
-}
-
-// Landscape mobile optimization
-@media (max-width: 768px) and (orientation: landscape) {
-  .mobile-menu-content {
-    max-height: 80vh;
+    &.logout {
+      color: var(--danger-strong);
+    }
   }
 }
 </style>

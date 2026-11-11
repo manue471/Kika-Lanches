@@ -4,7 +4,10 @@ import type {
   PaginatedResponse, 
   ProductFilters,
   CreateProductRequest,
-  UpdateProductRequest 
+  UpdateProductRequest,
+  Stock,
+  StockMovement,
+  StockOperation
 } from '@/types/api'
 
 export class ProductsService {
@@ -108,10 +111,19 @@ export class ProductsService {
   }
 
   /**
-   * Update product stock
+   * Register a stock movement: entry (add), exit (subtract) or inventory count (set)
    */
-  async updateStock(id: number, stock_quantity: number): Promise<Product> {
-    return await this.update(id, { stock_quantity })
+  async adjustStock(id: number, operation: StockOperation, quantity: number, reason?: string): Promise<Stock> {
+    return await apiClient.patch<Stock>(`/products/${id}/stock`, { operation, quantity, reason })
+  }
+
+  /**
+   * Stock movement history, newest first
+   */
+  async getStockMovements(id: number, page = 1): Promise<PaginatedResponse<StockMovement>> {
+    return await apiClient.get<PaginatedResponse<StockMovement>>(`/products/${id}/stock-movements`, {
+      params: { page, per_page: 15 }
+    })
   }
 
   /**
