@@ -14,6 +14,7 @@ export class CashOutflowsService {
 
   async create(body: {
     amount: number
+    payment_method: 'pix' | 'dinheiro'
     note?: string | null
     spent_at?: string | null
   }): Promise<CashOutflow> {

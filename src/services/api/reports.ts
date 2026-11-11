@@ -555,6 +555,7 @@ export class ReportsService {
     entries: {
       data: Array<{
         id: number
+        customer_id: number
         type: string
         type_label: string
         amount: number

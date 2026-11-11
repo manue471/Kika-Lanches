@@ -447,6 +447,7 @@
                 <span>Valor</span>
                 <span>Forma</span>
                 <span>Saldo após</span>
+                <span>Ticket</span>
               </div>
               <div v-for="row in ledgerRows" :key="row.id" class="ledger-row">
                 <span class="sales-line-nowrap">{{ formatShortDate(row.created_at) }}</span>
@@ -455,6 +456,16 @@
                 <span class="sales-line-nowrap">{{ formatCurrency(Number(row.amount) || 0) }}</span>
                 <span>{{ row.type === 'payment' ? row.payment_method_label : '—' }}</span>
                 <span class="sales-line-nowrap">{{ formatCurrency(Number(row.balance_after) || 0) }}</span>
+                <span>
+                  <BaseButton
+                    v-if="row.type === 'payment'"
+                    variant="secondary"
+                    size="sm"
+                    @click="openLedgerReceipt(row)"
+                  >
+                    Ver ticket
+                  </BaseButton>
+                </span>
               </div>
             </div>
           </div>
@@ -480,6 +491,13 @@
       </BaseCard>
       </div>
     </div>
+
+    <DebtReceiptModal
+      v-model:show="showLedgerReceipt"
+      :customer-id="ledgerReceipt?.customer_id ?? null"
+      :debt-id="ledgerReceipt?.id ?? null"
+      :customer-name="ledgerReceipt?.customer_name"
+    />
 
     <!-- Outros -->
     <div v-show="activeSection === 'more'" class="section-panel">
@@ -568,6 +586,7 @@ import BaseInput from '@/components/Base/Input.vue'
 import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import ReportsDailyProductsSection from '@/components/Reports/ReportsDailyProductsSection.vue'
+import DebtReceiptModal from '@/components/Modals/DebtReceiptModal.vue'
 import ReportsCashbookSection from '@/components/Reports/ReportsCashbookSection.vue'
 import type { SalesReportPeriodPreset, CreditSalesResponse, Order, ReportFilters, User } from '@/types/api'
 
@@ -703,6 +722,7 @@ const ledgerData = ref<{
   entries: {
     data: Array<{
       id: number
+      customer_id: number
       type: string
       type_label: string
       amount: number
@@ -716,6 +736,13 @@ const ledgerData = ref<{
 } | null>(null)
 
 const ledgerRows = computed(() => ledgerData.value?.entries?.data ?? [])
+type LedgerRow = (typeof ledgerRows.value)[number]
+const showLedgerReceipt = ref(false)
+const ledgerReceipt = ref<LedgerRow | null>(null)
+const openLedgerReceipt = (row: LedgerRow) => {
+  ledgerReceipt.value = row
+  showLedgerReceipt.value = true
+}
 const ledgerLastPage = computed(() => ledgerData.value?.entries?.last_page ?? 1)
 
 function ledgerFilters() {
@@ -1561,7 +1588,8 @@ watch(
     minmax(100px, 0.8fr)
     minmax(90px, 0.7fr)
     minmax(140px, 1fr)
-    minmax(110px, 0.8fr);
+    minmax(110px, 0.8fr)
+    minmax(100px, 0.7fr);
   column-gap: var(--spacing-4);
   padding: var(--spacing-3) var(--spacing-4);
   font-size: var(--font-size-sm);
@@ -1584,6 +1612,11 @@ watch(
 .ledger-row span:nth-child(4),
 .ledger-row span:nth-child(6) {
   text-align: right;
+}
+
+.ledger-head span:nth-child(7),
+.ledger-row span:nth-child(7) {
+  text-align: center;
 }
 
 .ledger-row {

@@ -174,6 +174,21 @@ export interface Stock {
   updated_at: string
 }
 
+export type StockOperation = 'add' | 'subtract' | 'set'
+
+export interface StockMovement {
+  id: number
+  product_id: number
+  type: 'initial' | 'entry' | 'exit' | 'adjustment' | 'sale' | 'sale_return'
+  quantity_change: number
+  quantity_before: number
+  quantity_after: number
+  reason?: string | null
+  order_id?: number | null
+  user?: { id: number; name: string } | null
+  created_at: string
+}
+
 export interface Product {
   id: number
   tenant_id: number
@@ -691,6 +706,7 @@ export interface PayDebtResponse {
 export interface CashOutflow {
   id: number
   amount: number | string
+  payment_method?: 'pix' | 'dinheiro' | null
   note?: string | null
   spent_at?: string | null
   created_at?: string
@@ -744,6 +760,7 @@ export interface CashbookResponse {
   entries?: CashbookEntries
   outflows?: {
     manual_total?: number | string
+    by_method?: Partial<Record<'pix' | 'dinheiro', number | string>>
     items?: CashOutflow[]
   }
   net?: number | string

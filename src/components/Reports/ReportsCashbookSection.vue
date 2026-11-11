@@ -127,6 +127,7 @@
 
       <div class="reports-grid">
         <BaseCard title="Recebimentos por forma de pagamento" class="report-card full-width">
+          <div class="table-scroll">
           <table class="payment-methods-table">
             <thead>
               <tr>
@@ -158,48 +159,66 @@
               </tr>
             </tfoot>
           </table>
+          </div>
         </BaseCard>
 
         <BaseCard :title="summaryTitle" class="report-card full-width">
-          <div class="report-summary">
-            <div class="summary-item highlight-row">
-              <span class="summary-label" title="Entrada imediata no caixa (PIX + dinheiro)">Caixa (PIX + Dinheiro)</span>
-              <span class="summary-value xl">{{ formatCurrency(suggestedIn) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label" title="Inclui cartão (recebimento registrado no período)">Total recebido</span>
-              <span class="summary-value">{{ formatCurrency(cashReceivedTotal) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label" title="Vendas fiado do período — não entrou no caixa">À prazo (pedidos)</span>
-              <span class="summary-value">{{ formatCurrency(aPrazoOrders) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label" title="Despesas lançadas">Saídas</span>
-              <span class="summary-value negative">{{ formatCurrency(outflowsTotal) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label" :title="`Caixa efetivo − saídas`">Líquido {{ isFullDay ? 'do dia' : 'do período' }}</span>
-              <span class="summary-value" :class="netSummaryClass">{{ formatCurrency(netVal) }}</span>
-            </div>
+          <div class="net-hero" :class="netSummaryClass">
+            <span class="net-label">Líquido {{ isFullDay ? 'do dia' : 'do período' }}</span>
+            <span class="net-value">{{ formatCurrency(netVal) }}</span>
+            <span class="net-formula">
+              {{ formatCurrency(effectiveIn) }} recebido − {{ formatCurrency(outflowsTotal) }} em saídas
+            </span>
           </div>
+
+          <dl class="stat-list">
+            <div class="stat-row">
+              <dt>
+                <span class="stat-name">Caixa (PIX + dinheiro)</span>
+                <span class="stat-hint">Entrada imediata no caixa</span>
+              </dt>
+              <dd>{{ formatCurrency(suggestedIn) }}</dd>
+            </div>
+            <div class="stat-row">
+              <dt>
+                <span class="stat-name">Total recebido</span>
+                <span class="stat-hint">Inclui cartão</span>
+              </dt>
+              <dd>{{ formatCurrency(cashReceivedTotal) }}</dd>
+            </div>
+            <div class="stat-row">
+              <dt>
+                <span class="stat-name">À prazo (pedidos)</span>
+                <span class="stat-hint">Vendas fiado — não entrou no caixa</span>
+              </dt>
+              <dd>{{ formatCurrency(aPrazoOrders) }}</dd>
+            </div>
+            <div class="stat-row">
+              <dt>
+                <span class="stat-name">Saídas</span>
+                <span class="stat-hint">Despesas lançadas</span>
+              </dt>
+              <dd class="negative">− {{ formatCurrency(outflowsTotal) }}</dd>
+            </div>
+          </dl>
         </BaseCard>
 
         <BaseCard title="Recebido" class="report-card">
-          <div class="report-summary">
-            <div class="summary-item highlight-row gap-2">
-              <span class="summary-label">Total efetivo recebido</span>
-              <span class="summary-value xl">{{ formatCurrency(effectiveIn) }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label" title="Valor usado no cálculo do líquido (manual ou sugestão)">
-                Caixa {{ isFullDay ? 'do dia' : 'do período' }} (sugestão)
-              </span>
-              <span class="summary-value muted">{{ formatCurrency(suggestedIn) }}</span>
-            </div>
+          <div class="received-hero">
+            <span class="received-label">Total efetivo recebido</span>
+            <span class="received-value">{{ formatCurrency(effectiveIn) }}</span>
+            <span v-if="isFullDay && manualChipVisible" class="chip chip-warn">Ajustado manualmente</span>
           </div>
+          <dl class="stat-list">
+            <div class="stat-row">
+              <dt>
+                <span class="stat-name">Caixa {{ isFullDay ? 'do dia' : 'do período' }} (sugestão)</span>
+                <span class="stat-hint">Calculado pelas vendas e quitações</span>
+              </dt>
+              <dd class="muted">{{ formatCurrency(suggestedIn) }}</dd>
+            </div>
+          </dl>
           <div v-if="isFullDay && manualChipVisible" class="manual-chips">
-            <span class="chip chip-warn">Ajustado manualmente</span>
             <span v-if="entries?.manual_note" class="chip chip-note">Nota: {{ entries.manual_note }}</span>
             <span v-if="confirmedLabel" class="chip chip-muted">{{ confirmedLabel }}</span>
           </div>
@@ -213,14 +232,22 @@
 
         <BaseCard title="Saídas" class="report-card full-width">
           <div class="outflows-head">
-            <span class="outflows-total">Total saídas: {{ formatCurrency(outflowsTotal) }}</span>
+            <div class="outflows-totals">
+              <span class="outflows-total">Total saídas: {{ formatCurrency(outflowsTotal) }}</span>
+              <span v-if="outflowItems.length" class="outflows-split">
+                PIX {{ formatCurrency(cashbookNum(cashbook?.outflows?.by_method?.pix)) }} ·
+                Dinheiro {{ formatCurrency(cashbookNum(cashbook?.outflows?.by_method?.dinheiro)) }}
+              </span>
+            </div>
             <BaseButton variant="primary" size="sm" @click="openOutflowModal">Registrar saída</BaseButton>
           </div>
           <div v-if="!outflowItems.length" class="empty-inline">Nenhuma saída registrada neste período.</div>
-          <table v-else class="outflows-table">
+          <div v-else class="table-scroll">
+          <table class="outflows-table">
             <thead>
               <tr>
                 <th>Valor</th>
+                <th>Forma</th>
                 <th>Observação</th>
                 <th>Quando</th>
                 <th></th>
@@ -229,6 +256,7 @@
             <tbody>
               <tr v-for="row in outflowItems" :key="row.id">
                 <td>{{ formatCurrency(cashbookNum(row.amount)) }}</td>
+                <td>{{ outflowMethodLabel(row.payment_method) }}</td>
                 <td>{{ row.note || '—' }}</td>
                 <td>{{ formatOutflowWhen(row.spent_at || row.created_at) }}</td>
                 <td class="cell-actions">
@@ -244,6 +272,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </BaseCard>
       </div>
     </template>
@@ -278,6 +307,19 @@
     <BaseModal :show="showOutflowModal" title="Registrar saída" size="md" @update:show="showOutflowModal = $event">
       <div class="modal-form">
         <BaseInput v-model.number="outflowForm.amount" type="number" step="0.01" min="0.01" label="Valor (R$) *" />
+        <div class="method-field">
+          <span class="method-label">Forma de pagamento *</span>
+          <div class="method-options">
+            <label class="method-option" :class="{ active: outflowForm.payment_method === 'pix' }">
+              <input v-model="outflowForm.payment_method" type="radio" value="pix" />
+              PIX
+            </label>
+            <label class="method-option" :class="{ active: outflowForm.payment_method === 'dinheiro' }">
+              <input v-model="outflowForm.payment_method" type="radio" value="dinheiro" />
+              Dinheiro
+            </label>
+          </div>
+        </div>
         <BaseInput v-model="outflowForm.note" type="text" label="Observação (opcional)" />
         <BaseInput v-model="outflowForm.spent_at" type="datetime-local" label="Data/hora da saída" />
       </div>
@@ -369,7 +411,12 @@ const adjustForm = ref({ total: 0 as number, note: '' })
 const savingAdjust = ref(false)
 
 const showOutflowModal = ref(false)
-const outflowForm = ref({ amount: undefined as number | undefined, note: '', spent_at: '' })
+const outflowForm = ref({
+  amount: undefined as number | undefined,
+  payment_method: 'dinheiro' as 'pix' | 'dinheiro',
+  note: '',
+  spent_at: ''
+})
 const savingOutflow = ref(false)
 const deletingId = ref<number | null>(null)
 
@@ -465,6 +512,12 @@ function spentAtToApi(local: string): string | undefined {
   const dt = new Date(s)
   if (Number.isNaN(dt.getTime())) return undefined
   return dt.toISOString()
+}
+
+function outflowMethodLabel(m?: string | null) {
+  if (m === 'pix') return 'PIX'
+  if (m === 'dinheiro') return 'Dinheiro'
+  return '—'
 }
 
 function formatOutflowWhen(s?: string | null) {
@@ -631,6 +684,7 @@ async function saveAdjustSuggestion() {
 function openOutflowModal() {
   outflowForm.value = {
     amount: undefined,
+    payment_method: 'dinheiro',
     note: '',
     spent_at: localDateTimeInput()
   }
@@ -647,6 +701,7 @@ async function submitOutflow() {
   try {
     await cashOutflowsService.create({
       amount: amt,
+      payment_method: outflowForm.value.payment_method,
       note: outflowForm.value.note?.trim() || undefined,
       spent_at: spentAtToApi(outflowForm.value.spent_at)
     })
@@ -677,6 +732,7 @@ async function removeOutflow(id: number) {
 
 <style lang="scss" scoped>
 .cashbook-section {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
@@ -776,8 +832,15 @@ async function removeOutflow(id: number) {
   }
 }
 
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .payment-methods-table {
   width: 100%;
+  min-width: 420px;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
 
@@ -792,6 +855,7 @@ async function removeOutflow(id: number) {
     color: var(--gray-700);
     font-weight: 600;
     background-color: var(--gray-100);
+    white-space: nowrap;
   }
 
   .col-num {
@@ -862,6 +926,7 @@ async function removeOutflow(id: number) {
 
 .outflows-table {
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
 
@@ -959,5 +1024,197 @@ async function removeOutflow(id: number) {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--spacing-2);
+}
+
+.net-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-4) var(--spacing-5);
+  margin-bottom: var(--spacing-4);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--gray-50, #f9fafb);
+  border: 1px solid var(--gray-200);
+
+  .net-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .net-value {
+    font-size: var(--font-size-3xl, 2rem);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--primary-dark);
+  }
+
+  .net-formula {
+    font-size: var(--font-size-sm);
+    color: var(--gray-600);
+  }
+
+  &.positive .net-value {
+    color: var(--success, #059669);
+  }
+
+  &.negative .net-value {
+    color: var(--danger, #dc2626);
+  }
+}
+
+.received-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+  margin-bottom: var(--spacing-3);
+
+  .received-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .received-value {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--primary-dark);
+  }
+}
+
+.stat-list {
+  margin: 0;
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3) 0;
+    border-bottom: 1px solid var(--gray-100);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  dt {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--primary-dark);
+
+    &.negative {
+      color: var(--danger, #dc2626);
+    }
+
+    &.muted {
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+  }
+
+  .stat-name {
+    font-size: var(--font-size-sm);
+    color: var(--gray-800);
+  }
+
+  .stat-hint {
+    font-size: var(--font-size-xs);
+    color: var(--gray-500, #6b7280);
+  }
+}
+
+.outflows-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.outflows-split {
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+}
+
+.method-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.method-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.method-options {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+.method-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+
+  &.active {
+    border-color: var(--primary);
+    background: var(--gray-50, #f9fafb);
+    color: var(--primary-dark);
+  }
+}
+
+@media (max-width: 640px) {
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-3);
+
+    > * {
+      width: 100%;
+    }
+  }
+
+  .payment-methods-table,
+  .outflows-table {
+    th,
+    td {
+      padding: var(--spacing-2);
+    }
+  }
+
+  .payment-methods-table td:first-child {
+    white-space: nowrap;
+  }
+
+  .net-hero {
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  .outflows-head > * {
+    flex: 1 1 auto;
+  }
 }
 </style>
