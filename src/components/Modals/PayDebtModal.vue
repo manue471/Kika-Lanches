@@ -142,7 +142,7 @@
           <BaseButton
             type="button"
             variant="primary"
-            :loading="isPayingDebt"
+            :loading="isPayingDebt || submitLock"
             :disabled="!canSubmit"
             @click="handleSubmit"
           >
@@ -319,7 +319,20 @@ const closeAfterReceipt = () => {
   emit('update:show', false)
 }
 
+// Trava local: cobre pagamento + recarga do saldo, evitando duplo clique
+const submitLock = ref(false)
+
 const handleSubmit = async () => {
+  if (submitLock.value) return
+  submitLock.value = true
+  try {
+    await runSubmit()
+  } finally {
+    submitLock.value = false
+  }
+}
+
+const runSubmit = async () => {
   if (!validateForm() || !props.customer) return
 
   try {

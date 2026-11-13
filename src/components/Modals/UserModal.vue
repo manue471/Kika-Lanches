@@ -177,7 +177,9 @@ const errors = ref<Record<string, string>>({})
 const showPassword = ref(false)
 
 // Computed
-const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+// Trava local: cobre todo o envio (inclusive o que vem depois da requisição), evitando duplo clique
+const submitLock = ref(false)
+const isSubmitting = computed(() => submitLock.value || isCreating.value || isUpdating.value)
 const isEditing = computed(() => !!props.user)
 
 const isFormValid = computed(() => {
@@ -275,6 +277,16 @@ const validateForm = () => {
 }
 
 const submitUser = async () => {
+  if (submitLock.value) return
+  submitLock.value = true
+  try {
+    await runSubmitUser()
+  } finally {
+    submitLock.value = false
+  }
+}
+
+const runSubmitUser = async () => {
   console.log('Submit user called, form:', form.value)
   console.log('Is editing:', isEditing.value)
   

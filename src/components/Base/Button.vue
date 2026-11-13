@@ -1,11 +1,13 @@
 <template>
   <button
     :class="buttonClasses"
-    :disabled="disabled"
+    :disabled="disabled || loading"
+    :aria-busy="loading || undefined"
     :type="type"
-    @click="$emit('click', $event)"
+    @click="handleClick"
   >
-    <slot name="icon" />
+    <span v-if="loading" class="btn-spinner" aria-hidden="true" />
+    <slot v-else name="icon" />
     <span v-if="$slots.default" class="button-content">
       <slot />
     </span>
@@ -21,6 +23,7 @@ interface Props {
   disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
   block?: boolean
+  loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -28,12 +31,19 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   disabled: false,
   type: 'button',
-  block: false
+  block: false,
+  loading: false
 })
 
-defineEmits<{
+const emit = defineEmits<{
   click: [event: MouseEvent]
 }>()
+
+// Em loading o botão não emite click: evita duplo envio mesmo antes do re-render.
+const handleClick = (event: MouseEvent) => {
+  if (props.loading || props.disabled) return
+  emit('click', event)
+}
 
 const buttonClasses = computed(() => {
   return [
@@ -42,7 +52,8 @@ const buttonClasses = computed(() => {
     `btn-${props.size}`,
     {
       'btn-block': props.block,
-      'btn-disabled': props.disabled
+      'btn-disabled': props.disabled,
+      'btn-loading': props.loading
     }
   ]
 })
@@ -152,6 +163,28 @@ const buttonClasses = computed(() => {
 .btn-lg {
   padding: 0.75rem 1.5rem;
   font-size: var(--font-size-lg);
+}
+
+// Loading state
+.btn-loading {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.btn-spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // Block variant

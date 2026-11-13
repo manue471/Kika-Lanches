@@ -536,7 +536,9 @@ const form = ref({
 })
 
 const errors = ref<Record<string, string>>({})
-const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+// Trava local: cobre todo o envio (inclusive o que vem depois da requisição), evitando duplo clique
+const submitLock = ref(false)
+const isSubmitting = computed(() => submitLock.value || isCreating.value || isUpdating.value)
 const isEditing = computed(() => !!props.orderId)
 const isReadOnlyView = computed(() => props.readonly === true && !!props.orderId)
 const modalSize = computed(() => (isReadOnlyView.value ? 'xl' : 'lg'))
@@ -1577,6 +1579,16 @@ const prepareOrderData = () => {
 }
 
 const submitOrder = async () => {
+  if (submitLock.value) return
+  submitLock.value = true
+  try {
+    await runSubmitOrder()
+  } finally {
+    submitLock.value = false
+  }
+}
+
+const runSubmitOrder = async () => {
   try {
     let result: Order | null = null
 

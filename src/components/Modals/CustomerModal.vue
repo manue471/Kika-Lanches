@@ -178,7 +178,9 @@ const classInfo = ref({
 })
 
 const errors = ref<Record<string, string>>({})
-const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+// Trava local: cobre todo o envio (inclusive o que vem depois da requisição), evitando duplo clique
+const submitLock = ref(false)
+const isSubmitting = computed(() => submitLock.value || isCreating.value || isUpdating.value)
 const isEditing = computed(() => !!props.customer)
 
 const resetForm = () => {
@@ -278,6 +280,16 @@ const validateForm = (): boolean => {
 }
 
 const handleSubmit = async () => {
+  if (submitLock.value) return
+  submitLock.value = true
+  try {
+    await runSubmit()
+  } finally {
+    submitLock.value = false
+  }
+}
+
+const runSubmit = async () => {
   if (!validateForm()) return
 
   try {

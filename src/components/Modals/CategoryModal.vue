@@ -85,7 +85,9 @@ const errors = ref<Record<string, string>>({})
 
 const isEditMode = computed(() => !!props.category)
 const modalTitle = computed(() => isEditMode.value ? 'Editar Categoria' : 'Nova Categoria')
-const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+// Trava local: cobre todo o envio (inclusive o que vem depois da requisição), evitando duplo clique
+const submitLock = ref(false)
+const isSubmitting = computed(() => submitLock.value || isCreating.value || isUpdating.value)
 
 const resetForm = () => {
   form.value = {
@@ -151,6 +153,16 @@ const isValidUrl = (url: string): boolean => {
 }
 
 const handleSubmit = async () => {
+  if (submitLock.value) return
+  submitLock.value = true
+  try {
+    await runSubmit()
+  } finally {
+    submitLock.value = false
+  }
+}
+
+const runSubmit = async () => {
   if (!validateForm()) {
     notifications.error('Por favor, corrija os erros do formulário')
     return

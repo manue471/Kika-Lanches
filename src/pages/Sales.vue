@@ -8,7 +8,6 @@
         <BaseButton 
           variant="primary" 
           @click="createNewOrder"
-          :loading="isCreating"
         >
           <span class="btn-icon">🛒</span>
           Nova Venda
@@ -99,8 +98,7 @@
             <BaseButton 
               variant="primary" 
               @click="createNewOrder"
-              :loading="isCreating"
-            >
+                >
               <span class="btn-icon">🛒</span>
               Nova Venda
             </BaseButton>
@@ -191,7 +189,6 @@ const {
   
   // Loading states
   isLoading,
-  isCreating,
   hasMoreOrders,
   isLoadingMoreOrders,
 

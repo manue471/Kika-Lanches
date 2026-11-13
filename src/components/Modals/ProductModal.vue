@@ -193,7 +193,9 @@ const form = ref<CreateProductRequest & UpdateProductRequest>({
 
 const errors = ref<Record<string, string>>({})
 const currentProduct = ref<Product | null>(null)
-const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+// Trava local: cobre todo o envio (inclusive o que vem depois da requisição), evitando duplo clique
+const submitLock = ref(false)
+const isSubmitting = computed(() => submitLock.value || isCreating.value || isUpdating.value)
 const isEditing = computed(() => !!props.productId)
 
 const resetForm = () => {
@@ -264,6 +266,16 @@ const validateForm = (): boolean => {
 }
 
 const handleSubmit = async () => {
+  if (submitLock.value) return
+  submitLock.value = true
+  try {
+    await runSubmit()
+  } finally {
+    submitLock.value = false
+  }
+}
+
+const runSubmit = async () => {
   if (!validateForm()) return
 
   try {
