@@ -559,6 +559,7 @@ export class ReportsService {
         type: string
         type_label: string
         amount: number
+        payment_method?: string | null
         payment_method_label: string
         balance_after: number
         created_at: string

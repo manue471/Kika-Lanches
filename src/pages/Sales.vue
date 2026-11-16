@@ -319,9 +319,13 @@ const timeRangeOptions = computed(() => {
 })
 
 // Methods
+let searchTimer: ReturnType<typeof setTimeout> | undefined
 const handleSearch = () => {
-  searchOrders(searchTerm.value)
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => searchOrders(searchTerm.value), 400)
 }
+
+onUnmounted(() => clearTimeout(searchTimer))
 
 const handleStatusFilter = () => {
   filterByStatus(statusFilter.value)

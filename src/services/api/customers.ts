@@ -12,7 +12,8 @@ import type {
   CustomerBalanceResponse,
   CustomerDebtsResponse,
   PayDebtRequest,
-  PayDebtResponse
+  PayDebtResponse,
+  CustomerDebt
 } from '@/types/api'
 
 export class CustomersService {
@@ -196,6 +197,20 @@ export class CustomersService {
    */
   async payDebt(customerId: number, data: PayDebtRequest): Promise<PayDebtResponse> {
     return await apiClient.post<PayDebtResponse>(`/customers/${customerId}/pay-debt`, data)
+  }
+
+  /**
+   * Altera a forma de pagamento de uma quitação
+   */
+  async updateDebtPaymentMethod(
+    customerId: number,
+    debtId: number,
+    paymentMethod: PayDebtRequest['payment_method']
+  ): Promise<{ message: string; debt: CustomerDebt }> {
+    return await apiClient.patch<{ message: string; debt: CustomerDebt }>(
+      `/customers/${customerId}/debts/${debtId}`,
+      { payment_method: paymentMethod }
+    )
   }
 
   /**

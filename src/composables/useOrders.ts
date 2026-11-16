@@ -44,12 +44,14 @@ export function useOrders(options?: { autoLoad?: boolean }) {
       date_to?: string
       time_range?: string
       seller_id?: number
+      search?: string
       page: number
       per_page: number
     } = {
       page,
       per_page: ORDERS_PER_PAGE
     }
+    if (searchTerm.value.trim()) params.search = searchTerm.value.trim()
     if (paymentMethodFilter.value) params.payment_method = paymentMethodFilter.value
     if (statusFilter.value) params.status = statusFilter.value
     if (startDate.value) params.date_from = startDate.value

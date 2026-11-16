@@ -19,6 +19,7 @@ export class OrdersService {
     date_to?: string
     time_range?: string
     seller_id?: number
+    search?: string
     page?: number
     per_page?: number
   }): Promise<PaginatedResponse<Order>> {
@@ -37,6 +38,9 @@ export class OrdersService {
     }
     if (params?.time_range) {
       queryParams.append('time_range', params.time_range)
+    }
+    if (params?.search) {
+      queryParams.append('search', params.search)
     }
     if (params?.seller_id != null && params.seller_id > 0) {
       queryParams.append('seller_id', String(params.seller_id))

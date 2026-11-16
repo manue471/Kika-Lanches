@@ -450,6 +450,7 @@
                 <span>Forma</span>
                 <span>Saldo após</span>
                 <span>Ticket</span>
+                <span>Editar</span>
               </div>
               <div v-for="row in ledgerRows" :key="row.id" class="ledger-row">
                 <span class="sales-line-nowrap">{{ formatShortDate(row.created_at) }}</span>
@@ -466,6 +467,16 @@
                     @click="openLedgerReceipt(row)"
                   >
                     Ver ticket
+                  </BaseButton>
+                </span>
+                <span>
+                  <BaseButton
+                    v-if="row.type === 'payment'"
+                    variant="secondary"
+                    size="sm"
+                    @click="openLedgerEdit(row)"
+                  >
+                    Editar
                   </BaseButton>
                 </span>
               </div>
@@ -493,6 +504,15 @@
       </BaseCard>
       </div>
     </div>
+
+    <EditDebtPaymentModal
+      v-model:show="showLedgerEdit"
+      :customer-id="ledgerEditRow?.customer_id ?? null"
+      :debt-id="ledgerEditRow?.id ?? null"
+      :customer-name="ledgerEditRow?.customer_name"
+      :current-method="ledgerEditRow?.payment_method"
+      @saved="loadDebtLedger(ledgerPage)"
+    />
 
     <DebtReceiptModal
       v-model:show="showLedgerReceipt"
@@ -589,6 +609,7 @@ import BaseSelect from '@/components/Base/Select.vue'
 import BaseLoading from '@/components/Base/Loading.vue'
 import ReportsDailyProductsSection from '@/components/Reports/ReportsDailyProductsSection.vue'
 import DebtReceiptModal from '@/components/Modals/DebtReceiptModal.vue'
+import EditDebtPaymentModal from '@/components/Modals/EditDebtPaymentModal.vue'
 import ReportsCashbookSection from '@/components/Reports/ReportsCashbookSection.vue'
 import type { SalesReportPeriodPreset, CreditSalesResponse, Order, ReportFilters, User } from '@/types/api'
 
@@ -728,6 +749,7 @@ const ledgerData = ref<{
       type: string
       type_label: string
       amount: number
+      payment_method?: string | null
       payment_method_label: string
       balance_after: number
       created_at: string
@@ -744,6 +766,12 @@ const ledgerReceipt = ref<LedgerRow | null>(null)
 const openLedgerReceipt = (row: LedgerRow) => {
   ledgerReceipt.value = row
   showLedgerReceipt.value = true
+}
+const showLedgerEdit = ref(false)
+const ledgerEditRow = ref<LedgerRow | null>(null)
+const openLedgerEdit = (row: LedgerRow) => {
+  ledgerEditRow.value = row
+  showLedgerEdit.value = true
 }
 const ledgerLastPage = computed(() => ledgerData.value?.entries?.last_page ?? 1)
 
@@ -1586,7 +1614,7 @@ watch(
 }
 
 .ledger-table {
-  min-width: 860px;
+  min-width: 960px;
   width: max-content;
 }
 
@@ -1600,7 +1628,8 @@ watch(
     minmax(90px, 0.7fr)
     minmax(140px, 1fr)
     minmax(110px, 0.8fr)
-    minmax(100px, 0.7fr);
+    minmax(100px, 0.7fr)
+    minmax(90px, 0.6fr);
   column-gap: var(--spacing-4);
   padding: var(--spacing-3) var(--spacing-4);
   font-size: var(--font-size-sm);
@@ -1626,7 +1655,9 @@ watch(
 }
 
 .ledger-head span:nth-child(7),
-.ledger-row span:nth-child(7) {
+.ledger-row span:nth-child(7),
+.ledger-head span:nth-child(8),
+.ledger-row span:nth-child(8) {
   text-align: center;
 }
 
